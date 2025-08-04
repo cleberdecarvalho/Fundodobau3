@@ -1,46 +1,45 @@
+// Objeto compatível com o padrão antigo para evitar erros de importação
+export const filmeStorage = {
+  obterFilmes: getFilmes,
+  saveFilmes,
+  addFilme,
+  updateFilme,
+  deleteFilme,
+  obterFilmePorGUID: (GUID: string) => getFilmes().find(f => f.GUID === GUID),
+};
+
 
 import { Filme } from '@shared/types';
 
-// Detecta ambiente e define a URL da API
-function getApiUrl() {
-  if (typeof window !== 'undefined') {
-    // Produção: HostGator/PHP
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      return '/api/api-filmes.php';
-    }
-    // Dev: Node.js/Express
-    return '/api/filmes';
-  }
-  return '';
+const STORAGE_KEY = 'filmes';
+
+export function getFilmes(): Filme[] {
+  const data = localStorage.getItem(STORAGE_KEY);
+  return data ? JSON.parse(data) : [];
 }
 
-const API_URL = getApiUrl();
+export function saveFilmes(filmes: Filme[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(filmes));
+}
 
-export const filmeStorage = {
-  async obterFilmes(): Promise<Filme[]> {
-    const res = await fetch(API_URL);
-    const data = await res.json();
-    // PHP retorna categoria como string JSON, converter para array
-    return data.map((f: any) => ({
-      ...f,
-      categoria: typeof f.categoria === 'string' ? JSON.parse(f.categoria) : f.categoria,
-    }));
-  },
-  async adicionarFilme(filme: Filme) {
-    await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(filme),
-    });
-  },
-  async atualizarFilme(id: string|number, filme: Partial<Filme>) {
-    await fetch(API_URL, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...filme, id }),
-    });
-  },
-  async removerFilme(id: string|number) {
-    await fetch(`${API_URL}?id=${id}`, { method: 'DELETE' });
-  },
-};
+export function addFilme(filme: Filme) {
+  const filmes = getFilmes();
+  filmes.push(filme);
+  saveFilmes(filmes);
+}
+
+
+export function updateFilme(filme: Filme) {
+  const filmes = getFilmes();
+  const idx = filmes.findIndex(f => f.GUID === filme.GUID);
+  if (idx !== -1) {
+    filmes[idx] = filme;
+    saveFilmes(filmes);
+  }
+}
+
+
+export function deleteFilme(GUID: string) {
+  const filmes = getFilmes().filter(f => f.GUID !== GUID);
+  saveFilmes(filmes);
+}
