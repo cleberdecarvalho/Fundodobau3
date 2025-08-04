@@ -1,0 +1,185 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /**
+   * Tema Vintage Anos 30 - Fundo Do Baú
+   * Cores inspiradas na era dourada do cinema: dourado, preto, creme, sépia
+   */
+  :root {
+    /* Cores principais - tema vintage */
+    --background: 28 15% 8%; /* Preto profundo vintage */
+    --foreground: 45 25% 92%; /* Creme claro */
+
+    --card: 28 15% 12%; /* Preto mais suave para cards */
+    --card-foreground: 45 25% 92%;
+
+    --popover: 28 15% 10%;
+    --popover-foreground: 45 25% 92%;
+
+    --primary: 45 85% 55%; /* Dourado vintage */
+    --primary-foreground: 28 15% 8%;
+
+    --secondary: 30 20% 15%; /* Marrom escuro vintage */
+    --secondary-foreground: 45 25% 92%;
+
+    --muted: 30 15% 18%;
+    --muted-foreground: 45 15% 65%;
+
+    --accent: 45 65% 45%; /* Dourado mais escuro */
+    --accent-foreground: 28 15% 8%;
+
+    --destructive: 0 65% 50%;
+    --destructive-foreground: 45 25% 92%;
+
+    --border: 30 20% 25%; /* Bordas em tom sépia */
+    --input: 30 20% 20%;
+    --ring: 45 85% 55%;
+
+    --radius: 0.75rem;
+
+    /* Cores específicas do tema */
+    --vintage-gold: 45 85% 55%;
+    --vintage-gold-dark: 45 65% 45%;
+    --vintage-sepia: 35 35% 35%;
+    --vintage-cream: 45 25% 92%;
+    --vintage-black: 28 15% 8%;
+    --vintage-silver: 210 10% 75%;
+
+    --sidebar-background: 28 15% 10%;
+    --sidebar-foreground: 45 25% 92%;
+    --sidebar-primary: 45 85% 55%;
+    --sidebar-primary-foreground: 28 15% 8%;
+    --sidebar-accent: 30 20% 15%;
+    --sidebar-accent-foreground: 45 25% 92%;
+    --sidebar-border: 30 20% 25%;
+    --sidebar-ring: 45 85% 55%;
+  }
+
+  /* Versão clara (opcional para admin) */
+  .light {
+    --background: 45 25% 96%;
+    --foreground: 28 15% 12%;
+    --card: 45 25% 98%;
+    --card-foreground: 28 15% 12%;
+    --primary: 45 65% 45%;
+    --primary-foreground: 45 25% 96%;
+    --secondary: 35 20% 85%;
+    --secondary-foreground: 28 15% 12%;
+    --border: 35 20% 80%;
+    --input: 35 20% 85%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Cormorant Garamond', serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Playfair Display', serif;
+  }
+}
+
+@layer components {
+  /* Estilo vintage para texto dourado */
+  .text-vintage-gold {
+    @apply text-[hsl(var(--vintage-gold))];
+  }
+
+  .text-vintage-cream {
+    @apply text-[hsl(var(--vintage-cream))];
+  }
+
+  .bg-vintage-gold {
+    @apply bg-[hsl(var(--vintage-gold))];
+  }
+
+  .bg-vintage-black {
+    @apply bg-[hsl(var(--vintage-black))];
+  }
+
+  /* Efeito de brilho dourado */
+  .vintage-glow {
+    text-shadow: 0 0 10px hsl(var(--vintage-gold)), 0 0 20px hsl(var(--vintage-gold)), 0 0 30px hsl(var(--vintage-gold));
+  }
+
+  /* Card de filme vintage */
+  .film-card {
+    @apply bg-card border border-border rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 hover:shadow-xl;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  }
+
+  .film-card:hover {
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5), 0 0 20px hsl(var(--vintage-gold) / 0.3);
+  }
+
+  /* Botão vintage */
+  .btn-vintage {
+    @apply bg-vintage-gold text-vintage-black px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-vintage-gold-dark hover:scale-105;
+    font-family: 'Playfair Display', serif;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  }
+
+  /* Gradiente vintage para backgrounds */
+  .vintage-gradient {
+    background: linear-gradient(135deg, hsl(var(--vintage-black)) 0%, hsl(var(--vintage-sepia)) 100%);
+  }
+
+  /* Scrollbar personalizada */
+  .vintage-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .vintage-scrollbar::-webkit-scrollbar-track {
+    background: hsl(var(--vintage-black));
+  }
+
+  .vintage-scrollbar::-webkit-scrollbar-thumb {
+    background: hsl(var(--vintage-gold));
+    border-radius: 4px;
+  }
+
+  .vintage-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--vintage-gold-dark));
+  }
+
+  /* Ocultar scrollbar mas manter funcionalidade */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Line clamp utilities */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}
