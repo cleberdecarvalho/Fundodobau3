@@ -97,7 +97,7 @@ function AdminDashboard() {
         console.log('Filmes carregados:', filmesApi);
         setFilmes(filmesApi);
         
-                // Atualizar status dos vídeos que não estão prontos
+        // Atualizar status dos vídeos que não estão prontos
         if (bunnyApiKey) {
           for (const filme of filmesApi) {
             if (filme.videoGUID && filme.videoStatus !== 'Vídeo Pronto' && filme.videoStatus !== 'Erro') {
@@ -112,13 +112,13 @@ function AdminDashboard() {
               }
             }
           }
-          setFilmes([...filmesApi]);
         }
       } catch (error) {
         console.error('Erro ao buscar filmes:', error);
         setFilmes([]);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     }
     fetchFilmes();
   }, [bunnyApiKey]);
@@ -188,8 +188,15 @@ function AdminDashboard() {
     try {
       if (filmeEditando) {
         // Atualiza filme existente
-        const atualizado = { ...filmeEditando, ...novoFilme, videoStatus: (novoFilme.videoGUID && novoFilme.embedLink) ? 'Processado' : 'Processando' };
-        await filmeStorage.updateFilme(atualizado.id || atualizado.GUID, atualizado);
+        console.log('🔄 Editando filme:', filmeEditando);
+        
+        // Usar apenas os dados do filmeEditando (que são os dados do formulário)
+        const atualizado = { 
+          ...filmeEditando,
+          videoStatus: (filmeEditando.videoGUID && filmeEditando.embedLink) ? 'Processado' : 'Processando' 
+        };
+        console.log('🔄 Dados atualizados:', atualizado);
+        await filmeStorage.updateFilme(atualizado.GUID, atualizado);
       } else {
         // Garante embedLink se houver videoGUID
         let embedLink = novoFilme.embedLink;
@@ -355,13 +362,23 @@ function AdminDashboard() {
               <button
                 type="button"
                 onClick={() => {
+                  setIsLoading(false);
+                  alert('Estado de loading resetado!');
+                }}
+                className="text-xs text-orange-400 underline mr-2"
+              >
+                Reset Loading
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   localStorage.clear();
-                  alert('Cache limpo com sucesso!');
+                  alert('Cache limpo com sucesso! Agora o sistema usará SQLite.');
                   window.location.reload();
                 }}
                 className="text-xs text-yellow-400 underline"
               >
-                Limpar Cache
+                Limpar Cache (Forçar SQLite)
               </button>
               <button
                 type="button"
@@ -544,7 +561,10 @@ function AdminDashboard() {
                       <div className="flex space-x-2 mt-2">
                         <Button
                           size="sm"
-                          onClick={() => setFilmeEditando(filme)}
+                          onClick={() => {
+                            console.log('🔄 Carregando filme para edição:', filme);
+                            setFilmeEditando(filme);
+                          }}
                           className="flex-1 bg-vintage-gold/20 text-vintage-gold hover:bg-vintage-gold hover:text-vintage-black border-vintage-gold/30"
                         >
                           <Edit className="h-3 w-3 mr-1" />

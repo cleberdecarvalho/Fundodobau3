@@ -13,58 +13,56 @@ import { api } from '@/lib/api';
 
 const STORAGE_KEY = 'filmes';
 
+// Configuração da API MySQL da Hostgator
+const MYSQL_CONFIG = {
+  baseURL: 'https://www.fundodobaufilmes.com/api-filmes.php', // Domínio da Hostgator
+  timeout: 15000,
+  headers: {
+    'Content-Type': 'application/json',
+  }
+};
+
 // Função para obter filmes da API
 export async function getFilmes(): Promise<Filme[]> {
-  // Durante desenvolvimento, usar localStorage diretamente
+  // Durante desenvolvimento, usar MySQL da Hostgator
   if (import.meta.env.DEV) {
     try {
-      const data = localStorage.getItem(STORAGE_KEY);
-      if (data && data.trim() !== '') {
-        // Verificar se não é HTML
-        if (data.includes('<!doctype') || data.includes('<html')) {
-          console.warn('localStorage contém HTML, limpando...');
-          localStorage.removeItem(STORAGE_KEY);
-          return [];
-        }
-        const parsed = JSON.parse(data);
-        console.log('Filmes carregados do localStorage:', parsed);
-        return Array.isArray(parsed) ? parsed : [];
+      console.log('🔄 Conectando com MySQL da Hostgator...');
+      const response = await fetch(MYSQL_CONFIG.baseURL + '?action=list', {
+        method: 'GET',
+        headers: MYSQL_CONFIG.headers,
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Filmes carregados do MySQL:', result);
+        return result.filmes || [];
+      } else {
+        console.error('❌ MySQL retornou status:', response.status);
+        throw new Error(`API retornou status ${response.status}`);
       }
-      return [];
-    } catch (localStorageError) {
-      console.error('Erro ao ler localStorage:', localStorageError);
-      // Limpar localStorage corrompido
-      localStorage.removeItem(STORAGE_KEY);
-      return [];
+    } catch (error) {
+      console.error('❌ Erro fatal ao conectar com MySQL:', error);
+      throw new Error('Não foi possível conectar com o banco de dados MySQL. Verifique a configuração.');
     }
   }
   
-  // Em produção, tentar API primeiro
+  // Em produção, usar a mesma API
   try {
-    const filmes = await api.getFilmes();
-    return filmes;
-  } catch (error) {
-    console.warn('Erro ao buscar filmes da API, usando localStorage:', error);
-    // Fallback para localStorage
-    try {
-      const data = localStorage.getItem(STORAGE_KEY);
-      if (data && data.trim() !== '') {
-        // Verificar se não é HTML
-        if (data.includes('<!doctype') || data.includes('<html')) {
-          console.warn('localStorage contém HTML, limpando...');
-          localStorage.removeItem(STORAGE_KEY);
-          return [];
-        }
-        const parsed = JSON.parse(data);
-        return Array.isArray(parsed) ? parsed : [];
-      }
-      return [];
-    } catch (localStorageError) {
-      console.error('Erro ao ler localStorage:', localStorageError);
-      // Limpar localStorage corrompido
-      localStorage.removeItem(STORAGE_KEY);
-      return [];
+    const response = await fetch(MYSQL_CONFIG.baseURL + '?action=list', {
+      method: 'GET',
+      headers: MYSQL_CONFIG.headers,
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      return result.filmes || [];
+    } else {
+      throw new Error(`API retornou status ${response.status}`);
     }
+  } catch (error) {
+    console.error('❌ Erro ao conectar com MySQL:', error);
+    throw new Error('Não foi possível conectar com o banco de dados.');
   }
 }
 
@@ -92,15 +90,39 @@ export function saveFilmes(filmes: Filme[]) {
 
 // Função para adicionar filme via API
 export async function addFilme(filme: Filme) {
-  try {
-    // Tentar API primeiro
-    const response = await api.createFilme(filme);
-    if (response.success) {
-      console.log('Filme adicionado via API com sucesso');
-      return response.guid;
+  // Durante desenvolvimento, usar MySQL da Hostgator
+  if (import.meta.env.DEV) {
+    try {
+      console.log('🔄 Adicionando filme via MySQL da Hostgator...');
+      const response = await fetch(MYSQL_CONFIG.baseURL + '?action=create', {
+        method: 'POST',
+        headers: MYSQL_CONFIG.headers,
+        body: JSON.stringify(filme),
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ Filme adicionado via MySQL com sucesso');
+        return result.guid || filme.GUID;
+      } else {
+        console.error('❌ MySQL retornou status:', response.status);
+        throw new Error(`API retornou status ${response.status}`);
+      }
+    } catch (error) {
+      console.error('❌ Erro fatal ao adicionar filme via MySQL:', error);
+      throw new Error('Não foi possível salvar o filme no banco de dados MySQL.');
     }
-  } catch (error) {
-    console.warn('Erro ao adicionar filme via API, tentando localStorage:', error);
+  } else {
+    // Em produção, tentar API PHP/MySQL
+    try {
+      const response = await api.createFilme(filme);
+      if (response.success) {
+        console.log('Filme adicionado via API MySQL com sucesso');
+        return response.guid;
+      }
+    } catch (error) {
+      console.warn('Erro ao adicionar filme via API MySQL, tentando localStorage:', error);
+    }
   }
   
   // Fallback para localStorage sempre que API falhar
@@ -130,22 +152,48 @@ export async function addFilme(filme: Filme) {
 
 // Função para atualizar filme via API
 export async function updateFilme(id: string | number, filme: Partial<Filme>) {
-  try {
-    // Tentar API primeiro
-    const guid = typeof id === 'string' ? id : id.toString();
-    const response = await api.updateFilme(guid, filme);
-    if (response.success) {
-      console.log('Filme atualizado via API com sucesso');
-      return true;
+  const guid = typeof id === 'string' ? id : id.toString();
+  console.log('🔄 Atualizando filme com GUID:', guid);
+  console.log('🔄 Dados para atualizar:', filme);
+  
+  // Durante desenvolvimento, usar MySQL da Hostgator
+  if (import.meta.env.DEV) {
+    try {
+      console.log('🔄 Atualizando via MySQL da Hostgator...');
+      const response = await fetch(MYSQL_CONFIG.baseURL + `?action=update&guid=${guid}`, {
+        method: 'PUT',
+        headers: MYSQL_CONFIG.headers,
+        body: JSON.stringify(filme),
+      });
+      
+      if (response.ok) {
+        console.log('✅ Filme atualizado via MySQL com sucesso');
+        return true;
+      } else {
+        console.error('❌ MySQL retornou status:', response.status);
+        throw new Error(`API retornou status ${response.status}`);
+      }
+    } catch (error) {
+      console.error('❌ Erro fatal ao atualizar filme via MySQL:', error);
+      throw new Error('Não foi possível atualizar o filme no banco de dados MySQL.');
     }
-  } catch (error) {
-    console.warn('Erro ao atualizar filme via API, usando localStorage:', error);
+  } else {
+    // Em produção, tentar API PHP/MySQL
+    try {
+      const response = await api.updateFilme(guid, filme);
+      if (response.success) {
+        console.log('Filme atualizado via API MySQL com sucesso');
+        return true;
+      }
+    } catch (error) {
+      console.warn('Erro ao atualizar filme via API MySQL, usando localStorage:', error);
+    }
   }
   
   // Fallback para localStorage
   try {
     const filmes = await getFilmes();
-    const idx = filmes.findIndex(f => f.GUID === id || f.id === id);
+    const idx = filmes.findIndex(f => f.GUID === id);
     if (idx !== -1) {
       filmes[idx] = { ...filmes[idx], ...filme };
       saveFilmes(filmes);
@@ -161,22 +209,45 @@ export async function updateFilme(id: string | number, filme: Partial<Filme>) {
 
 // Função para deletar filme via API
 export async function deleteFilme(id: string | number) {
-  try {
-    // Tentar API primeiro
-    const guid = typeof id === 'string' ? id : id.toString();
-    const response = await api.deleteFilme(guid);
-    if (response.success) {
-      console.log('Filme deletado via API com sucesso');
-      return true;
+  const guid = typeof id === 'string' ? id : id.toString();
+  
+  // Durante desenvolvimento, usar MySQL da Hostgator
+  if (import.meta.env.DEV) {
+    try {
+      console.log('🔄 Deletando filme via MySQL da Hostgator...');
+      const response = await fetch(MYSQL_CONFIG.baseURL + `?action=delete&guid=${guid}`, {
+        method: 'DELETE',
+        headers: MYSQL_CONFIG.headers,
+      });
+      
+      if (response.ok) {
+        console.log('✅ Filme deletado via MySQL com sucesso');
+        return true;
+      } else {
+        console.error('❌ MySQL retornou status:', response.status);
+        throw new Error(`API retornou status ${response.status}`);
+      }
+    } catch (error) {
+      console.error('❌ Erro fatal ao deletar filme via MySQL:', error);
+      throw new Error('Não foi possível deletar o filme do banco de dados MySQL.');
     }
-  } catch (error) {
-    console.warn('Erro ao deletar filme via API, usando localStorage:', error);
+  } else {
+    // Em produção, tentar API PHP/MySQL
+    try {
+      const response = await api.deleteFilme(guid);
+      if (response.success) {
+        console.log('Filme deletado via API MySQL com sucesso');
+        return true;
+      }
+    } catch (error) {
+      console.warn('Erro ao deletar filme via API MySQL, usando localStorage:', error);
+    }
   }
   
   // Fallback para localStorage
   try {
     const filmes = await getFilmes();
-    const filmesFiltrados = filmes.filter(f => f.GUID !== id && f.id !== id);
+    const filmesFiltrados = filmes.filter(f => f.GUID !== id);
     saveFilmes(filmesFiltrados);
     console.log('Filme deletado via localStorage com sucesso');
     return true;
