@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Filter, Grid, List, Star, Calendar, Clock } from 'lucide-react';
+import { Search, Filter, Grid, List, Star, Calendar, Clock, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -325,8 +325,8 @@ function FilmGridCard({ filme }: { filme: any }) {
             className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
           />
           <div className="absolute inset-0 bg-vintage-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-            <div className="bg-vintage-gold rounded-full p-3">
-              <Star className="h-6 w-6 text-vintage-black" />
+            <div className="bg-vintage-gold rounded-full p-3 transform transition-transform duration-300 hover:scale-110">
+              <Play className="h-6 w-6 text-vintage-black" />
             </div>
           </div>
         </div>
@@ -361,11 +361,18 @@ function FilmListCard({ filme }: { filme: any }) {
   return (
     <Link to={`/filme/${filme.GUID}`} className="group">
       <div className="film-card flex">
-        <img
-          src={filme.imagemUrl}
-          alt={filme.nomePortugues}
-          className="w-24 h-36 object-cover flex-shrink-0"
-        />
+        <div className="relative overflow-hidden">
+          <img
+            src={filme.imagemUrl}
+            alt={filme.nomePortugues}
+            className="w-24 h-36 object-cover flex-shrink-0"
+          />
+          <div className="absolute inset-0 bg-vintage-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+            <div className="bg-vintage-gold rounded-full p-2 transform transition-transform duration-300 hover:scale-110">
+              <Play className="h-4 w-4 text-vintage-black" />
+            </div>
+          </div>
+        </div>
         <div className="p-4 flex-1">
           <h3 className="font-vintage-serif font-semibold text-xl text-vintage-cream mb-2 group-hover:text-vintage-gold transition-colors">
             {filme.nomePortugues}

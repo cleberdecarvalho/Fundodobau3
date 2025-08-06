@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download, Calendar, Clock, Search, Filter, X as XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { CATEGORIAS, DECADAS } from '@shared/types';
 import { Filme } from '@shared/types';
@@ -705,32 +706,34 @@ function AdminDashboard() {
                   {/* Filtro por década */}
                   <div>
                     <label className="block text-sm font-semibold text-vintage-gold mb-2">Década</label>
-                    <select
-                      value={filtroDecada}
-                      onChange={(e) => setFiltroDecada(e.target.value)}
-                      className="w-full px-4 py-2 bg-vintage-black/50 border border-vintage-gold/30 rounded-lg text-vintage-cream focus:border-vintage-gold focus:outline-none"
-                    >
-                      <option value="">Todas as décadas</option>
-                      {DECADAS.map((decada) => (
-                        <option key={decada.id} value={decada.id}>
-                          {decada.nome}
-                        </option>
-                      ))}
-                    </select>
+                    <Select value={filtroDecada} onValueChange={setFiltroDecada}>
+                      <SelectTrigger className="w-full bg-vintage-black/50 border-vintage-gold/30 text-vintage-cream">
+                        <SelectValue placeholder="Todas as décadas" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-vintage-black border-vintage-gold/30">
+                        <SelectItem value="">Todas as décadas</SelectItem>
+                        {DECADAS.map((decada) => (
+                          <SelectItem key={decada.decada} value={decada.decada}>
+                            {decada.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Ordenação */}
                   <div>
                     <label className="block text-sm font-semibold text-vintage-gold mb-2">Ordenar por</label>
-                    <select
-                      value={ordenacao}
-                      onChange={(e) => setOrdenacao(e.target.value as 'nome' | 'ano' | 'assistencias')}
-                      className="w-full px-4 py-2 bg-vintage-black/50 border border-vintage-gold/30 rounded-lg text-vintage-cream focus:border-vintage-gold focus:outline-none"
-                    >
-                      <option value="nome">Nome</option>
-                      <option value="ano">Ano</option>
-                      <option value="assistencias">Visualizações</option>
-                    </select>
+                    <Select value={ordenacao} onValueChange={(value: 'nome' | 'ano' | 'assistencias') => setOrdenacao(value)}>
+                      <SelectTrigger className="w-full bg-vintage-black/50 border-vintage-gold/30 text-vintage-cream">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-vintage-black border-vintage-gold/30">
+                        <SelectItem value="nome">Nome</SelectItem>
+                        <SelectItem value="ano">Ano</SelectItem>
+                        <SelectItem value="assistencias">Visualizações</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   {/* Botão limpar filtros */}
