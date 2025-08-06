@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download, Calendar, Clock, Search, Filter, X as XIcon } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download, Calendar, Clock, Search, Filter, X as XIcon, FileUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ProtectedRoute } from '../components/ProtectedRoute';
@@ -23,12 +23,17 @@ function AdminDashboard() {
   
   // Estados para filtros
   const [filtroCategorias, setFiltroCategorias] = useState<string[]>([]);
-  const [filtroDecada, setFiltroDecada] = useState<string>('');
+  const [filtroDecada, setFiltroDecada] = useState<string>('todas');
   const [buscaTexto, setBuscaTexto] = useState<string>('');
   const [ordenacao, setOrdenacao] = useState<'nome' | 'ano' | 'assistencias'>('nome');
   const [filmeEditando, setFilmeEditando] = useState<Filme | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importStatus, setImportStatus] = useState<'idle' | 'importing' | 'success' | 'error'>('idle');
+  const [importMessage, setImportMessage] = useState<string>('');
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  const fileInputRefImport = useRef<HTMLInputElement | null>(null);
   const [carrossel, setCarrossel] = useState([
     { posicao: 0, filmeId: null, imagemUrl: null, ativo: false },
     { posicao: 1, filmeId: null, imagemUrl: null, ativo: false },
@@ -118,6 +123,121 @@ function AdminDashboard() {
   useEffect(() => {
     aplicarFiltros();
   }, [filmes, buscaTexto, filtroCategorias, filtroDecada, ordenacao]);
+
+  // Função para importar dados JSON
+  const handleImportarDados = async (file: File) => {
+    try {
+      setImportStatus('importing');
+      setImportMessage('Lendo arquivo...');
+      
+      const text = await file.text();
+      
+      // Tentar fazer parse do JSON com tratamento de erro mais detalhado
+      let filmesImportados;
+      try {
+        filmesImportados = JSON.parse(text);
+      } catch (parseError) {
+        console.error('Erro no parse do JSON:', parseError);
+        
+        // Tentar identificar e corrigir problemas comuns
+        let correctedText = text;
+        
+        // Corrigir aspas duplas dentro de strings (problema comum com embedLink)
+        correctedText = correctedText.replace(/"embedLink":\s*"([^"]*)"([^"]*)"([^"]*)"/g, (match, p1, p2, p3) => {
+          return `"embedLink": "${p1}${p2.replace(/"/g, '\\"')}${p3}"`;
+        });
+        
+        // Tentar parse novamente
+        try {
+          filmesImportados = JSON.parse(correctedText);
+        } catch (secondError) {
+          throw new Error(`Erro no JSON: ${parseError.message}. Verifique se o arquivo está formatado corretamente.`);
+        }
+      }
+      
+      if (!Array.isArray(filmesImportados)) {
+        throw new Error('O arquivo deve conter um array de filmes');
+      }
+      
+      setImportProgress({ current: 0, total: filmesImportados.length });
+      setImportMessage(`Importando ${filmesImportados.length} filmes...`);
+      
+      let sucessos = 0;
+      let erros = 0;
+      
+      for (let i = 0; i < filmesImportados.length; i++) {
+        const filme = filmesImportados[i];
+        setImportProgress({ current: i + 1, total: filmesImportados.length });
+        setImportMessage(`Importando filme ${i + 1} de ${filmesImportados.length}: ${filme.nomePortugues || filme.nomeOriginal || 'Sem título'}`);
+        
+        try {
+          // Validar dados obrigatórios
+          if (!filme.nomePortugues && !filme.nomeOriginal) {
+            throw new Error('Filme deve ter nome em português ou original');
+          }
+          
+          // Preparar dados do filme
+          const dadosFilme = {
+            nomeOriginal: filme.nomeOriginal || filme.nomePortugues || '',
+            nomePortugues: filme.nomePortugues || filme.nomeOriginal || '',
+            ano: filme.ano || '',
+            categoria: Array.isArray(filme.categoria) ? filme.categoria : [],
+            duracao: filme.duracao || '',
+            sinopse: filme.sinopse || '',
+            imagemUrl: filme.imagemUrl || '',
+            embedLink: filme.embedLink || '',
+            videoGUID: filme.videoGUID || '',
+            videoStatus: filme.videoStatus || 'Processado', // Default para Processado
+            assistencias: parseInt(filme.assistencias) || 0,
+            avaliacoes: filme.avaliacoes || { gostei: 0, gosteiMuito: 0, naoGostei: 0 }
+          };
+          
+          // Enviar para a API
+          const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              endpoint: 'filmes',
+              ...dadosFilme
+            }),
+          });
+          
+          if (response.ok) {
+            sucessos++;
+          } else {
+            erros++;
+            console.error(`Erro ao importar filme ${filme.nomePortugues}:`, await response.text());
+          }
+          
+          // Pequena pausa para não sobrecarregar a API
+          await new Promise(resolve => setTimeout(resolve, 100));
+          
+        } catch (error) {
+          erros++;
+          console.error(`Erro ao processar filme ${filme.nomePortugues}:`, error);
+        }
+      }
+      
+      setImportStatus('success');
+      setImportMessage(`Importação concluída! ${sucessos} filmes importados com sucesso, ${erros} erros.`);
+      
+      // Recarregar filmes após importação
+      setTimeout(() => {
+        fetchFilmes();
+        setShowImportModal(false);
+        setImportStatus('idle');
+        setImportMessage('');
+        setImportProgress({ current: 0, total: 0 });
+      }, 3000);
+      
+    } catch (error) {
+      setImportStatus('error');
+      setImportMessage(`Erro na importação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      console.error('Erro na importação:', error);
+    }
+  };
 
   // Função para limpar formulário
   const limparFormulario = () => {
@@ -671,6 +791,14 @@ function AdminDashboard() {
                       Exportar Dados
                     </Button>
                     <Button
+                      onClick={() => setShowImportModal(true)}
+                      variant="outline"
+                      className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                    >
+                      <FileUp className="h-4 w-4 mr-2" />
+                      Importar Dados
+                    </Button>
+                    <Button
                       onClick={() => setActiveTab('novo-filme')}
                       className="btn-vintage"
                     >
@@ -708,10 +836,10 @@ function AdminDashboard() {
                     <label className="block text-sm font-semibold text-vintage-gold mb-2">Década</label>
                     <Select value={filtroDecada} onValueChange={setFiltroDecada}>
                       <SelectTrigger className="w-full bg-vintage-black/50 border-vintage-gold/30 text-vintage-cream">
-                        <SelectValue placeholder="Todas as décadas" />
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="bg-vintage-black border-vintage-gold/30">
-                        <SelectItem value="">Todas as décadas</SelectItem>
+                        <SelectItem value="todas">Todas as décadas</SelectItem>
                         {DECADAS.map((decada) => (
                           <SelectItem key={decada.decada} value={decada.decada}>
                             {decada.label}
@@ -742,7 +870,7 @@ function AdminDashboard() {
                       onClick={() => {
                         setBuscaTexto('');
                         setFiltroCategorias([]);
-                        setFiltroDecada('');
+                        setFiltroDecada('todas');
                         setOrdenacao('nome');
                       }}
                       variant="outline"
@@ -1709,6 +1837,127 @@ function AdminDashboard() {
                     className="flex-1 bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
                   >
                     Cancelar
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal de Importação de Dados */}
+          {showImportModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-vintage-black border border-vintage-gold/30 rounded-lg p-6 max-w-lg w-full">
+                <h3 className="text-xl font-vintage-serif font-bold text-vintage-gold mb-4">
+                  Importar Dados JSON
+                </h3>
+                
+                {importStatus === 'idle' && (
+                  <div className="space-y-4">
+                    <p className="text-vintage-cream/80 font-vintage-body mb-4">
+                      Selecione um arquivo JSON com filmes para importar. O arquivo deve conter um array de filmes.
+                    </p>
+                    
+                    <div className="border-2 border-dashed border-vintage-gold/30 rounded-lg p-6 text-center">
+                      <FileUp className="h-12 w-12 text-vintage-gold/50 mx-auto mb-4" />
+                      <p className="text-vintage-cream/60 mb-4">
+                        Arraste e solte um arquivo JSON aqui ou clique para selecionar
+                      </p>
+                      <input
+                        ref={fileInputRefImport}
+                        type="file"
+                        accept=".json"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleImportarDados(file);
+                          }
+                        }}
+                        className="hidden"
+                      />
+                      <Button
+                        onClick={() => fileInputRefImport.current?.click()}
+                        className="btn-vintage"
+                      >
+                        Selecionar Arquivo
+                      </Button>
+                    </div>
+                    
+                    <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-4">
+                      <h4 className="text-vintage-gold font-semibold mb-2">Formato esperado:</h4>
+                      <pre className="text-xs text-vintage-cream/60 overflow-x-auto">
+{`[
+  {
+    "GUID": "uuid-do-filme",
+    "nomePortugues": "Nome do Filme",
+    "nomeOriginal": "Original Name", 
+    "ano": "2024",
+    "categoria": ["Ação", "Aventura"],
+    "duracao": "120 min",
+    "sinopse": "Descrição do filme...",
+    "imagemUrl": "/images/filmes/filme.jpg",
+    "embedLink": "<iframe src=\\"URL\\" allowfullscreen></iframe>",
+    "videoGUID": "uuid-do-video",
+    "videoStatus": "Processado",
+    "assistencias": 0,
+    "avaliacoes": {"gostei": 0, "gosteiMuito": 0, "naoGostei": 0}
+  }
+]`}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+                
+                {importStatus === 'importing' && (
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-vintage-gold mx-auto mb-4"></div>
+                      <p className="text-vintage-cream font-semibold">{importMessage}</p>
+                      {importProgress.total > 0 && (
+                        <div className="mt-4">
+                          <div className="flex justify-between text-sm text-vintage-cream/60 mb-2">
+                            <span>Progresso</span>
+                            <span>{importProgress.current} / {importProgress.total}</span>
+                          </div>
+                          <div className="w-full bg-vintage-black/30 rounded-full h-2">
+                            <div 
+                              className="bg-vintage-gold h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                
+                {importStatus === 'success' && (
+                  <div className="text-center">
+                    <div className="text-green-500 text-6xl mb-4">✓</div>
+                    <p className="text-vintage-cream font-semibold text-lg mb-2">Importação Concluída!</p>
+                    <p className="text-vintage-cream/80">{importMessage}</p>
+                  </div>
+                )}
+                
+                {importStatus === 'error' && (
+                  <div className="text-center">
+                    <div className="text-red-500 text-6xl mb-4">✗</div>
+                    <p className="text-vintage-cream font-semibold text-lg mb-2">Erro na Importação</p>
+                    <p className="text-vintage-cream/80">{importMessage}</p>
+                  </div>
+                )}
+                
+                <div className="flex space-x-3 pt-6">
+                  <Button
+                    onClick={() => {
+                      setShowImportModal(false);
+                      setImportStatus('idle');
+                      setImportMessage('');
+                      setImportProgress({ current: 0, total: 0 });
+                    }}
+                    variant="outline"
+                    className="flex-1 bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                  >
+                    {importStatus === 'idle' ? 'Cancelar' : 'Fechar'}
                   </Button>
                 </div>
               </div>
