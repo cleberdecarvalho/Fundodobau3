@@ -96,6 +96,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Debug logs
+  console.log('🔐 AuthContext Debug:', {
+    user: user,
+    isAuthenticated: !!user,
+    isAdmin: user?.tipo === 'admin',
+    userTipo: user?.tipo,
+    loading
+  });
+
   return (
     <AuthContext.Provider
       value={{

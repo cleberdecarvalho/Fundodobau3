@@ -44,7 +44,7 @@ export default function Index() {
   useEffect(() => {
     const carregarSliders = async () => {
       try {
-        const response = await fetch('/api/sliders');
+        const response = await fetch('http://localhost:8084/api/sliders');
         if (response.ok) {
           const data = await response.json();
           setSliders(data.sliders);

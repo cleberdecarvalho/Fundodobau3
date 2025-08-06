@@ -312,6 +312,92 @@ try {
                 break;
             }
             
+            // Solicitar redefinição de senha
+            if ($endpoint === 'auth/forgot-password') {
+                $email = $input['email'] ?? '';
+                
+                if (empty($email)) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Email é obrigatório']);
+                    break;
+                }
+                
+                // Verificar se o email existe
+                $stmt = $pdo->prepare("SELECT id, nome FROM usuarios WHERE email = ?");
+                $stmt->execute([$email]);
+                $user = $stmt->fetch();
+                
+                if (!$user) {
+                    http_response_code(404);
+                    echo json_encode(['error' => 'Email não encontrado']);
+                    break;
+                }
+                
+                // Gerar token único para redefinição (válido por 1 hora)
+                $token = bin2hex(random_bytes(32));
+                $expires = date('Y-m-d H:i:s', strtotime('+1 hour'));
+                
+                // Salvar token na base de dados
+                $stmt = $pdo->prepare("
+                    INSERT INTO password_resets (email, token, expires_at) 
+                    VALUES (?, ?, ?) 
+                    ON DUPLICATE KEY UPDATE token = ?, expires_at = ?
+                ");
+                $stmt->execute([$email, $token, $expires, $token, $expires]);
+                
+                // Em produção, aqui enviaria um email com o link
+                // Por enquanto, retornamos o token para teste
+                echo json_encode([
+                    'success' => true, 
+                    'message' => 'Link de redefinição enviado para seu email',
+                    'token' => $token, // Remover em produção
+                    'reset_url' => "https://www.fundodobaufilmes.com/reset-password?token=" . $token
+                ]);
+                break;
+            }
+            
+            // Redefinir senha com token
+            if ($endpoint === 'auth/reset-password') {
+                $token = $input['token'] ?? '';
+                $novaSenha = $input['novaSenha'] ?? '';
+                
+                if (empty($token) || empty($novaSenha)) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Token e nova senha são obrigatórios']);
+                    break;
+                }
+                
+                // Verificar se o token é válido e não expirou
+                $stmt = $pdo->prepare("
+                    SELECT email FROM password_resets 
+                    WHERE token = ? AND expires_at > NOW() AND usado = 0
+                ");
+                $stmt->execute([$token]);
+                $reset = $stmt->fetch();
+                
+                if (!$reset) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Token inválido ou expirado']);
+                    break;
+                }
+                
+                // Atualizar senha do usuário
+                $senhaHash = password_hash($novaSenha, PASSWORD_DEFAULT);
+                $stmt = $pdo->prepare("UPDATE usuarios SET senha = ? WHERE email = ?");
+                
+                if ($stmt->execute([$senhaHash, $reset['email']])) {
+                    // Marcar token como usado
+                    $stmt = $pdo->prepare("UPDATE password_resets SET usado = 1 WHERE token = ?");
+                    $stmt->execute([$token]);
+                    
+                    echo json_encode(['success' => true, 'message' => 'Senha alterada com sucesso']);
+                } else {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Erro ao alterar senha']);
+                }
+                break;
+            }
+            
             // Verificar status de autenticação
             if ($endpoint === 'auth/me') {
                 $user = getCurrentUser($pdo);

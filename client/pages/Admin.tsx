@@ -97,7 +97,7 @@ function AdminDashboard() {
   useEffect(() => {
     async function fetchCarrossel() {
       try {
-        const response = await fetch('/api/carrossel');
+        const response = await fetch('http://localhost:8084/api/carrossel');
         if (response.ok) {
           const data = await response.json();
           setCarrossel(data.carrossel);
@@ -113,7 +113,7 @@ function AdminDashboard() {
   useEffect(() => {
     async function fetchSliders() {
       try {
-        const response = await fetch('/api/sliders');
+        const response = await fetch('http://localhost:8084/api/sliders');
         if (response.ok) {
           const data = await response.json();
           setSliders(data.sliders);

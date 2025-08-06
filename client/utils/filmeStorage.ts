@@ -28,7 +28,7 @@ async function salvarImagemComoArquivo(base64Data: string, nomeFilme: string): P
     console.log('🖼️ Salvando imagem para:', nomeFilme);
     
     // Salvar imagem via API do servidor
-    const response = await fetch('/api/salvar-imagem', {
+    const response = await fetch('http://localhost:8084/api/salvar-imagem', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

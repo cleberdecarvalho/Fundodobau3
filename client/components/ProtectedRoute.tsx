@@ -10,11 +10,21 @@ export function ProtectedRoute({ children, requireAdmin = false }: ProtectedRout
   const { isAuthenticated, isAdmin } = useAuth();
   const location = useLocation();
 
+  // Debug logs
+  console.log('🛡️ ProtectedRoute Debug:', {
+    requireAdmin,
+    isAuthenticated,
+    isAdmin,
+    pathname: location.pathname
+  });
+
   if (!isAuthenticated) {
+    console.log('❌ Usuário não autenticado, redirecionando para /auth');
     return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   if (requireAdmin && !isAdmin) {
+    console.log('❌ Usuário não é admin, mostrando erro de acesso negado');
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="text-center max-w-md">

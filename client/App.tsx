@@ -38,7 +38,11 @@ const App = () => (
                       </ProtectedRoute>
                     } />
                     <Route path="/favoritos" element={<Favoritos />} />
-                    <Route path="/admin" element={<Admin />} />
+                    <Route path="/admin" element={
+                      <ProtectedRoute requireAdmin>
+                        <Admin />
+                      </ProtectedRoute>
+                    } />
                     <Route path="/categorias" element={<PlaceholderPage title="Categorias" />} />
                     <Route path="/sobre" element={<PlaceholderPage title="Sobre Nós" />} />
                     <Route path="/contato" element={<PlaceholderPage title="Contato" />} />

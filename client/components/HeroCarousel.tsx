@@ -24,7 +24,7 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
   useEffect(() => {
     async function fetchCarrossel() {
       try {
-        const response = await fetch('/api/carrossel');
+        const response = await fetch('http://localhost:8084/api/carrossel');
         if (response.ok) {
           const data = await response.json();
           const carrosselAtivo = data.carrossel.filter((item: CarrosselItem) => item.ativo && item.filmeId && item.imagemUrl);
