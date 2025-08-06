@@ -61,7 +61,7 @@ export default function Index() {
       </section>
 
       {/* Sliders de Filmes por Categoria */}
-      <div className="space-y-12 py-8">
+      <div className="space-y-8 py-6">
         {filmesPorCategoria.Drama && filmesPorCategoria.Drama.length > 0 && (
           <FilmSlider
             titulo="Filmes de Drama"
