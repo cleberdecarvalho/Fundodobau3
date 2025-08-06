@@ -125,5 +125,106 @@ export function createServer() {
     }
   });
 
+  // POST /api/salvar-imagem-carrossel - Salvar imagem do carrossel
+  app.post("/api/salvar-imagem-carrossel", (req, res) => {
+    try {
+      const { imagemBase64, nomeFilme, posicao } = req.body;
+      
+      if (!imagemBase64 || !nomeFilme || posicao === undefined) {
+        return res.status(400).json({ success: false, error: 'Imagem, nome do filme e posição são obrigatórios' });
+      }
+
+      // Extrair dados base64
+      const matches = imagemBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+      if (!matches) {
+        return res.status(400).json({ success: false, error: 'Formato base64 inválido' });
+      }
+
+      const mimeType = matches[1];
+      const base64String = matches[2];
+      
+      // Gerar nome do arquivo para o carrossel
+      const extensao = mimeType.split('/')[1] || 'jpg';
+      const nomeArquivo = `carrossel-${posicao}-${nomeFilme.toLowerCase().replace(/[^a-z0-9]/g, '-')}.${extensao}`;
+      const uploadPath = path.join(process.cwd(), 'public', 'images', 'carrossel');
+      const caminhoArquivo = path.join(uploadPath, nomeArquivo);
+      
+      // Criar diretório se não existir
+      if (!fs.existsSync(uploadPath)) {
+        fs.mkdirSync(uploadPath, { recursive: true });
+      }
+      
+      // Converter base64 para buffer
+      const buffer = Buffer.from(base64String, 'base64');
+      
+      // Salvar arquivo
+      fs.writeFileSync(caminhoArquivo, buffer);
+      
+      console.log('✅ Imagem do carrossel salva:', caminhoArquivo);
+      
+      res.json({ 
+        success: true, 
+        caminho: `/images/carrossel/${nomeArquivo}`,
+        nomeArquivo 
+      });
+    } catch (error) {
+      console.error('❌ Erro ao salvar imagem do carrossel:', error);
+      res.status(500).json({ success: false, error: 'Erro ao salvar imagem do carrossel' });
+    }
+  });
+
+  // GET /api/carrossel - Obter configuração do carrossel
+  app.get("/api/carrossel", (req, res) => {
+    try {
+      const carrosselPath = path.join(process.cwd(), 'data', 'carrossel.json');
+      
+      if (fs.existsSync(carrosselPath)) {
+        const carrosselData = fs.readFileSync(carrosselPath, 'utf8');
+        const carrossel = JSON.parse(carrosselData);
+        res.json({ success: true, carrossel });
+      } else {
+        // Carrossel padrão se não existir
+        const carrosselPadrao = [
+          { posicao: 0, filmeId: null, imagemUrl: null, ativo: false },
+          { posicao: 1, filmeId: null, imagemUrl: null, ativo: false },
+          { posicao: 2, filmeId: null, imagemUrl: null, ativo: false }
+        ];
+        res.json({ success: true, carrossel: carrosselPadrao });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao obter carrossel:', error);
+      res.status(500).json({ success: false, error: 'Erro ao obter carrossel' });
+    }
+  });
+
+  // POST /api/carrossel - Salvar configuração do carrossel
+  app.post("/api/carrossel", (req, res) => {
+    try {
+      const { carrossel } = req.body;
+      
+      if (!carrossel || !Array.isArray(carrossel)) {
+        return res.status(400).json({ success: false, error: 'Dados do carrossel são obrigatórios' });
+      }
+
+      const dataPath = path.join(process.cwd(), 'data');
+      const carrosselPath = path.join(dataPath, 'carrossel.json');
+      
+      // Criar diretório se não existir
+      if (!fs.existsSync(dataPath)) {
+        fs.mkdirSync(dataPath, { recursive: true });
+      }
+      
+      // Salvar configuração
+      fs.writeFileSync(carrosselPath, JSON.stringify(carrossel, null, 2));
+      
+      console.log('✅ Configuração do carrossel salva');
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('❌ Erro ao salvar carrossel:', error);
+      res.status(500).json({ success: false, error: 'Erro ao salvar carrossel' });
+    }
+  });
+
   return app;
 }

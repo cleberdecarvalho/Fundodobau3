@@ -4,37 +4,76 @@ import { Link } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Filme } from '@shared/types';
 
+interface CarrosselItem {
+  posicao: number;
+  filmeId: string | null;
+  imagemUrl: string | null;
+  ativo: boolean;
+}
+
 interface HeroCarouselProps {
   filmes: Filme[];
 }
 
 export function HeroCarousel({ filmes }: HeroCarouselProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [carrosselData, setCarrosselData] = useState<CarrosselItem[]>([]);
+  const [carrosselFilmes, setCarrosselFilmes] = useState<Filme[]>([]);
+
+  // Carregar dados do carrossel
+  useEffect(() => {
+    async function fetchCarrossel() {
+      try {
+        const response = await fetch('/api/carrossel');
+        if (response.ok) {
+          const data = await response.json();
+          const carrosselAtivo = data.carrossel.filter((item: CarrosselItem) => item.ativo && item.filmeId && item.imagemUrl);
+          setCarrosselData(carrosselAtivo);
+          
+          // Buscar filmes correspondentes
+          const filmesCarrossel = carrosselAtivo.map((item: CarrosselItem) => {
+            const filme = filmes.find(f => f.GUID === item.filmeId);
+            return filme ? { ...filme, imagemUrl: item.imagemUrl } : null;
+          }).filter(Boolean) as Filme[];
+          
+          setCarrosselFilmes(filmesCarrossel);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar carrossel:', error);
+      }
+    }
+    fetchCarrossel();
+  }, [filmes]);
 
   // Auto-play do carousel
   useEffect(() => {
+    if (carrosselFilmes.length === 0) return;
+    
     const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % filmes.length);
+      setCurrentSlide((prev) => (prev + 1) % carrosselFilmes.length);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [filmes.length]);
+  }, [carrosselFilmes.length]);
 
   const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % filmes.length);
+    setCurrentSlide((prev) => (prev + 1) % carrosselFilmes.length);
   };
 
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + filmes.length) % filmes.length);
+    setCurrentSlide((prev) => (prev - 1 + carrosselFilmes.length) % carrosselFilmes.length);
   };
 
   const goToSlide = (index: number) => {
     setCurrentSlide(index);
   };
 
-  if (!filmes.length) return null;
+  // Se não há filmes no carrossel, usar filmes normais como fallback
+  const filmesParaExibir = carrosselFilmes.length > 0 ? carrosselFilmes : filmes;
+  
+  if (!filmesParaExibir.length) return null;
 
-  const filmeAtual = filmes[currentSlide];
+  const filmeAtual = filmesParaExibir[currentSlide];
 
   return (
     <section className="relative h-[70vh] overflow-hidden">
@@ -120,7 +159,7 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
 
       {/* Dots Indicator */}
       <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 z-20 flex space-x-3">
-        {filmes.map((_, index) => (
+        {filmesParaExibir.map((_, index) => (
           <button
             key={index}
             onClick={() => goToSlide(index)}
@@ -136,7 +175,7 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
       {/* Film Number Indicator */}
       <div className="absolute top-8 right-8 z-20 bg-vintage-black/50 backdrop-blur-sm rounded-lg px-4 py-2">
         <span className="text-vintage-cream font-vintage-body">
-          {currentSlide + 1} / {filmes.length}
+          {currentSlide + 1} / {filmesParaExibir.length}
         </span>
       </div>
     </section>

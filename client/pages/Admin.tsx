@@ -15,12 +15,17 @@ function AdminDashboard() {
   // Para preview local de imagem
   const [posterPreview, setPosterPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'filmes' | 'novo-filme'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'filmes' | 'novo-filme' | 'carrossel'>('dashboard');
   const [filmes, setFilmes] = useState<Filme[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filmeEditando, setFilmeEditando] = useState<Filme | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [carrossel, setCarrossel] = useState([
+    { posicao: 0, filmeId: null, imagemUrl: null, ativo: false },
+    { posicao: 1, filmeId: null, imagemUrl: null, ativo: false },
+    { posicao: 2, filmeId: null, imagemUrl: null, ativo: false }
+  ]);
 
   const [novoFilme, setNovoFilme] = useState({
     nomeOriginal: '',
@@ -75,6 +80,22 @@ function AdminDashboard() {
       }
     }
     fetchFilmes();
+  }, []);
+
+  // Carregar configuração do carrossel
+  useEffect(() => {
+    async function fetchCarrossel() {
+      try {
+        const response = await fetch('/api/carrossel');
+        if (response.ok) {
+          const data = await response.json();
+          setCarrossel(data.carrossel);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar carrossel:', error);
+      }
+    }
+    fetchCarrossel();
   }, []);
 
   // Salva a key na sessionStorage sempre que mudar
@@ -243,6 +264,59 @@ function AdminDashboard() {
     novasAvaliacoes: 12,
   };
 
+  // Funções para gerenciar o carrossel
+  const handleCarrosselImageUpload = async (file: File, posicao: number, nomeFilme: string) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = e.target?.result as string;
+        
+        const response = await fetch('/api/salvar-imagem-carrossel', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            imagemBase64: base64,
+            nomeFilme: nomeFilme,
+            posicao: posicao
+          }),
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          const novoCarrossel = [...carrossel];
+          novoCarrossel[posicao].imagemUrl = result.caminho;
+          setCarrossel(novoCarrossel);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error('Erro ao fazer upload da imagem do carrossel:', error);
+    }
+  };
+
+  const handleSalvarCarrossel = async () => {
+    try {
+      const response = await fetch('/api/carrossel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ carrossel }),
+      });
+      
+      if (response.ok) {
+        alert('Carrossel salvo com sucesso!');
+      } else {
+        alert('Erro ao salvar carrossel');
+      }
+    } catch (error) {
+      console.error('Erro ao salvar carrossel:', error);
+      alert('Erro ao salvar carrossel');
+    }
+  };
+
 
 
   return (
@@ -300,6 +374,12 @@ function AdminDashboard() {
               onClick={() => { setFilmeEditando(null); setActiveTab('novo-filme'); }}
             >
               Novo Filme
+            </button>
+            <button
+              className={`px-4 py-2 rounded font-vintage-body font-semibold ${activeTab === 'carrossel' ? 'bg-vintage-gold text-vintage-black' : 'bg-vintage-black/40 text-vintage-gold border border-vintage-gold/30'}`}
+              onClick={() => setActiveTab('carrossel')}
+            >
+              Carrossel Superior
             </button>
           </div>
 
@@ -850,6 +930,113 @@ function AdminDashboard() {
                     </div>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Carrossel Superior Tab */}
+          {activeTab === 'carrossel' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-vintage-gold">
+                  Gerenciar Carrossel Superior
+                </h3>
+                <Button
+                  onClick={handleSalvarCarrossel}
+                  className="btn-vintage"
+                >
+                  <Save className="h-4 w-4 mr-2" />
+                  Salvar Carrossel
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {carrossel.map((item, index) => (
+                  <div key={index} className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-6">
+                    <h4 className="text-lg font-semibold text-vintage-gold mb-4">
+                      Posição {index + 1}
+                    </h4>
+                    
+                    {/* Seleção do Filme */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-semibold text-vintage-gold mb-2">
+                        Filme
+                      </label>
+                      <select
+                        value={item.filmeId || ''}
+                        onChange={(e) => {
+                          const novoCarrossel = [...carrossel];
+                          novoCarrossel[index].filmeId = e.target.value || null;
+                          setCarrossel(novoCarrossel);
+                        }}
+                        className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream focus:border-vintage-gold focus:outline-none"
+                      >
+                        <option value="">Selecione um filme</option>
+                        {filmes.map((filme) => (
+                          <option key={filme.GUID} value={filme.GUID}>
+                            {filme.nomePortugues}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Upload da Imagem */}
+                    {item.filmeId && (
+                      <div className="mb-4">
+                        <label className="block text-sm font-semibold text-vintage-gold mb-2">
+                          Imagem do Carrossel (Full Width)
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const filmeSelecionado = filmes.find(f => f.GUID === item.filmeId);
+                              if (filmeSelecionado) {
+                                handleCarrosselImageUpload(file, index, filmeSelecionado.nomePortugues);
+                              }
+                            }
+                          }}
+                          className="block w-full text-sm text-vintage-cream bg-vintage-black/50 border border-vintage-gold/30 rounded-lg cursor-pointer focus:outline-none"
+                        />
+                      </div>
+                    )}
+
+                    {/* Preview da Imagem */}
+                    {item.imagemUrl && (
+                      <div className="mb-4">
+                        <label className="block text-sm font-semibold text-vintage-gold mb-2">
+                          Preview
+                        </label>
+                        <div className="w-full h-32 bg-vintage-black/50 border border-vintage-gold/20 rounded-lg overflow-hidden">
+                          <img
+                            src={item.imagemUrl}
+                            alt="Preview do carrossel"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Ativar/Desativar */}
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        checked={item.ativo}
+                        onChange={(e) => {
+                          const novoCarrossel = [...carrossel];
+                          novoCarrossel[index].ativo = e.target.checked;
+                          setCarrossel(novoCarrossel);
+                        }}
+                        className="rounded border-vintage-gold/30 text-vintage-gold focus:ring-vintage-gold focus:ring-offset-0"
+                      />
+                      <label className="text-sm text-vintage-cream">
+                        Ativo no carrossel
+                      </label>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           )}
