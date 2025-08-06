@@ -73,7 +73,7 @@ export default function Auth() {
               <Film className="h-8 w-8 text-vintage-black" />
             </div>
             <div className="flex flex-col">
-              <h1 className="text-2xl font-vintage-serif font-bold text-vintage-gold vintage-glow">
+              <h1 className="text-2xl font-bold text-vintage-gold">
                 Fundo Do Baú
               </h1>
               <span className="text-sm text-vintage-cream/70 font-vintage-body -mt-1">

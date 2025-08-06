@@ -10,7 +10,7 @@ export default function NotFound() {
           <div className="mx-auto w-32 h-32 bg-vintage-gold/10 rounded-full flex items-center justify-center mb-6">
             <Film className="w-16 h-16 text-vintage-gold" />
           </div>
-          <h1 className="text-6xl font-vintage-serif font-bold text-vintage-gold mb-4 vintage-glow">
+          <h1 className="text-6xl font-bold text-vintage-gold mb-4">
             404
           </h1>
           <h2 className="text-3xl font-vintage-serif font-bold text-vintage-cream mb-4">

@@ -45,7 +45,7 @@ export function FilmSlider({ titulo, filmes }: FilmSliderProps) {
       <div className="container mx-auto px-4">
         {/* Título da Seção */}
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-3xl font-vintage-serif font-bold text-vintage-gold vintage-glow">
+                      <h2 className="text-3xl font-bold text-vintage-gold">
             {titulo}
           </h2>
           

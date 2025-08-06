@@ -129,7 +129,7 @@ export default function FilmeDetalhes() {
             <div className="lg:col-span-1 flex flex-col justify-between">
               {/* Título e Meta */}
               <div className="mb-6">
-                <h1 className="text-3xl lg:text-4xl font-vintage-serif font-bold text-vintage-gold mb-3 vintage-glow">
+                <h1 className="text-3xl lg:text-4xl font-bold text-vintage-gold mb-3">
                   {filme.nomePortugues}
                 </h1>
                 <p className="text-lg text-vintage-cream/80 italic mb-4 font-vintage-body">

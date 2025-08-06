@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -81,11 +81,11 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Cormorant Garamond', serif;
+    font-family: 'Inter', sans-serif;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Playfair Display', serif;
+    font-family: 'Roboto', sans-serif;
   }
 }
 
@@ -107,10 +107,7 @@
     @apply bg-[hsl(var(--vintage-black))];
   }
 
-  /* Efeito de brilho dourado */
-  .vintage-glow {
-    text-shadow: 0 0 10px hsl(var(--vintage-gold)), 0 0 20px hsl(var(--vintage-gold)), 0 0 30px hsl(var(--vintage-gold));
-  }
+
 
   /* Card de filme vintage */
   .film-card {
@@ -125,7 +122,7 @@
   /* Botão vintage */
   .btn-vintage {
     @apply bg-vintage-gold text-vintage-black px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-vintage-gold-dark hover:scale-105;
-    font-family: 'Playfair Display', serif;
+    font-family: 'Roboto', sans-serif;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
   }
 

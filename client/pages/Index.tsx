@@ -49,7 +49,7 @@ export default function Index() {
       {/* Introdução da plataforma */}
       <section className="py-16 bg-gradient-to-b from-vintage-black to-vintage-sepia/20">
         <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl md:text-5xl font-vintage-serif font-bold text-vintage-gold mb-6 vintage-glow">
+          <h2 className="text-4xl md:text-5xl font-bold text-vintage-gold mb-6">
             Bem-vindo aos Anos Dourados
           </h2>
           <p className="text-xl text-vintage-cream/90 font-vintage-body max-w-3xl mx-auto leading-relaxed">

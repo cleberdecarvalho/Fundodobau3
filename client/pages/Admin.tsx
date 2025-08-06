@@ -252,7 +252,7 @@ function AdminDashboard() {
           {/* Campo de API key Bunny.net */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-2">
             <div className="flex items-center gap-2">
-              <label className="text-vintage-gold font-vintage-serif font-semibold text-sm">Bunny.net API Key:</label>
+              <label className="text-vintage-gold font-semibold text-sm">Bunny.net API Key:</label>
               <input
                 type={showApiKey ? 'text' : 'password'}
                 value={bunnyApiKey}
@@ -273,7 +273,7 @@ function AdminDashboard() {
           </div>
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-4xl md:text-5xl font-vintage-serif font-bold text-vintage-gold mb-4 vintage-glow">
+            <h1 className="text-4xl md:text-5xl font-bold text-vintage-gold mb-4">
               Painel Administrativo
             </h1>
             <p className="text-lg text-vintage-cream/80 font-vintage-body">
@@ -310,7 +310,7 @@ function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-vintage-cream/70 font-vintage-body text-sm">Filmes</p>
-                    <p className="text-3xl font-vintage-serif font-bold text-vintage-gold">{stats.totalFilmes}</p>
+                    <p className="text-3xl font-bold text-vintage-gold">{stats.totalFilmes}</p>
                   </div>
                   <Film className="h-8 w-8 text-vintage-gold/70" />
                 </div>
@@ -319,7 +319,7 @@ function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-vintage-cream/70 font-vintage-body text-sm">Visualizações</p>
-                    <p className="text-3xl font-vintage-serif font-bold text-vintage-gold">{stats.totalVisualizacoes}</p>
+                    <p className="text-3xl font-bold text-vintage-gold">{stats.totalVisualizacoes}</p>
                   </div>
                   <Eye className="h-8 w-8 text-vintage-gold/70" />
                 </div>
@@ -328,7 +328,7 @@ function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-vintage-cream/70 font-vintage-body text-sm">Usuários</p>
-                    <p className="text-3xl font-vintage-serif font-bold text-vintage-gold">{stats.totalUsuarios}</p>
+                    <p className="text-3xl font-bold text-vintage-gold">{stats.totalUsuarios}</p>
                   </div>
                   <Users className="h-8 w-8 text-vintage-gold/70" />
                 </div>
@@ -337,7 +337,7 @@ function AdminDashboard() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-vintage-cream/70 font-vintage-body text-sm">Novas Avaliações</p>
-                    <p className="text-3xl font-vintage-serif font-bold text-vintage-gold">{stats.novasAvaliacoes}</p>
+                    <p className="text-3xl font-bold text-vintage-gold">{stats.novasAvaliacoes}</p>
                   </div>
                   <BarChart3 className="h-8 w-8 text-vintage-gold/70" />
                 </div>
@@ -349,7 +349,7 @@ function AdminDashboard() {
           {activeTab === 'filmes' && (
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-vintage-serif font-semibold text-vintage-gold">
+                <h3 className="text-xl font-semibold text-vintage-gold">
                   Lista de Filmes ({filmes.length})
                 </h3>
                                   <div className="flex space-x-2">
@@ -429,7 +429,7 @@ function AdminDashboard() {
           {activeTab === 'novo-filme' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
-                <h3 className="text-xl font-vintage-serif font-semibold text-vintage-gold">
+                <h3 className="text-xl font-semibold text-vintage-gold">
                   Adicionar Novo Filme
                 </h3>
               </div>

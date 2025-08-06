@@ -37,7 +37,7 @@ export function Header() {
               <Film className="h-6 w-6 text-vintage-black" />
             </div>
             <div className="flex flex-col">
-              <h1 className="text-xl font-vintage-serif font-bold text-vintage-gold vintage-glow">
+              <h1 className="text-xl font-bold text-vintage-gold">
                 Fundo Do Baú
               </h1>
               <span className="text-xs text-vintage-cream/70 font-vintage-body -mt-1">

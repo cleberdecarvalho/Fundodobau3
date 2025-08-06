@@ -53,7 +53,7 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
       <div className="relative z-10 container mx-auto px-4 h-full flex items-center">
         <div className="max-w-2xl">
           {/* Título */}
-          <h1 className="text-5xl md:text-6xl font-vintage-serif font-bold text-vintage-cream mb-4 vintage-glow">
+                          <h1 className="text-5xl md:text-6xl font-bold text-vintage-cream mb-4">
             {filmeAtual.nomePortugues}
           </h1>
           

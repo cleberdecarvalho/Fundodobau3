@@ -95,7 +95,7 @@ export default function Filmes() {
       <div className="container mx-auto px-4">
         {/* Header da Página */}
         <div className="mb-8">
-          <h1 className="text-4xl md:text-5xl font-vintage-serif font-bold text-vintage-gold mb-4 vintage-glow">
+          <h1 className="text-4xl md:text-5xl font-bold text-vintage-gold mb-4">
             Catálogo de Filmes
           </h1>
           <p className="text-lg text-vintage-cream/80 font-vintage-body max-w-3xl">

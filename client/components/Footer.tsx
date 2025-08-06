@@ -13,7 +13,7 @@ export function Footer() {
                 <Film className="h-6 w-6 text-vintage-black" />
               </div>
               <div className="flex flex-col">
-                <h3 className="text-xl font-vintage-serif font-bold text-vintage-gold vintage-glow">
+                <h3 className="text-xl font-bold text-vintage-gold">
                   Fundo Do Baú
                 </h3>
                 <span className="text-xs text-vintage-cream/70 font-vintage-body -mt-1">
