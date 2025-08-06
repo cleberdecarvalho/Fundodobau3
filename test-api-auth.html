@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste API Autenticação - Fundo do Baú</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #333;
+            color: #fff;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+        }
+        .success {
+            background-color: #28a745;
+            color: white;
+        }
+        .error {
+            background-color: #dc3545;
+            color: white;
+        }
+        .info {
+            background-color: #17a2b8;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste API Autenticação - Fundo do Baú</h1>
+    
+    <div class="container">
+        <h2>🔍 Teste de Conexão</h2>
+        <button onclick="testConnection()">Testar Conexão com API</button>
+        <div id="connectionResult" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>🔐 Login</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="loginEmail">Email:</label>
+                <input type="email" id="loginEmail" value="admin@fundodobau.com.br" required>
+            </div>
+            <div class="form-group">
+                <label for="loginSenha">Senha:</label>
+                <input type="password" id="loginSenha" value="admin123" required>
+            </div>
+            <button type="submit">Fazer Login</button>
+        </form>
+        <div id="loginResult" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>📝 Registro</h2>
+        <form id="registerForm">
+            <div class="form-group">
+                <label for="registerNome">Nome:</label>
+                <input type="text" id="registerNome" value="Teste Usuário" required>
+            </div>
+            <div class="form-group">
+                <label for="registerEmail">Email:</label>
+                <input type="email" id="registerEmail" value="teste@email.com" required>
+            </div>
+            <div class="form-group">
+                <label for="registerSenha">Senha:</label>
+                <input type="password" id="registerSenha" value="123456" required>
+            </div>
+            <button type="submit">Criar Conta</button>
+        </form>
+        <div id="registerResult" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>👤 Verificar Status</h2>
+        <button onclick="checkAuth()">Verificar Se Estou Logado</button>
+        <div id="checkResult" class="result"></div>
+    </div>
+
+    <div class="container">
+        <h2>🚪 Logout</h2>
+        <button onclick="logout()">Fazer Logout</button>
+        <div id="logoutResult" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://fundodobau.com.br/api-filmes.php';
+
+        // Testar conexão
+        async function testConnection() {
+            const resultDiv = document.getElementById('connectionResult');
+
+            try {
+                const response = await fetch(`${API_BASE}?action=list`);
+                const data = await response.text();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Conexão OK!\n\nStatus: ${response.status}\nResposta: ${data.substring(0, 200)}...`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Erro na conexão: ${response.status}\n\nResposta: ${data.substring(0, 200)}...`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Erro de conexão: ${error.message}`;
+            }
+        }
+
+        // Login
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const senha = document.getElementById('loginSenha').value;
+            const resultDiv = document.getElementById('loginResult');
+
+            try {
+                const response = await fetch(`${API_BASE}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        endpoint: 'auth/login',
+                        email, 
+                        senha 
+                    }),
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Login realizado com sucesso!\n\nUsuário: ${JSON.stringify(data.user, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Erro no login: ${data.error || 'Erro desconhecido'}\n\nResposta: ${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Erro de conexão: ${error.message}`;
+            }
+        });
+
+        // Registro
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const nome = document.getElementById('registerNome').value;
+            const email = document.getElementById('registerEmail').value;
+            const senha = document.getElementById('registerSenha').value;
+            const resultDiv = document.getElementById('registerResult');
+
+            try {
+                const response = await fetch(`${API_BASE}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        endpoint: 'auth/register',
+                        nome, 
+                        email, 
+                        senha 
+                    }),
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Registro realizado com sucesso!\n\nUsuário: ${JSON.stringify(data.user, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Erro no registro: ${data.error || 'Erro desconhecido'}\n\nResposta: ${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Erro de conexão: ${error.message}`;
+            }
+        });
+
+        // Verificar autenticação
+        async function checkAuth() {
+            const resultDiv = document.getElementById('checkResult');
+
+            try {
+                const response = await fetch(`${API_BASE}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        endpoint: 'auth/me'
+                    }),
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Usuário autenticado!\n\nUsuário: ${JSON.stringify(data.user, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Usuário não autenticado: ${data.error || 'Não logado'}\n\nResposta: ${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Erro de conexão: ${error.message}`;
+            }
+        }
+
+        // Logout
+        async function logout() {
+            const resultDiv = document.getElementById('logoutResult');
+
+            try {
+                const response = await fetch(`${API_BASE}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        endpoint: 'auth/logout'
+                    }),
+                    credentials: 'include'
+                });
+
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✅ Logout realizado com sucesso!';
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Erro no logout: ${data.error || 'Erro desconhecido'}\n\nResposta: ${JSON.stringify(data, null, 2)}`;
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Erro de conexão: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

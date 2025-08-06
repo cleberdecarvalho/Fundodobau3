@@ -71,20 +71,22 @@ export const avaliacoesStorage = {
   // Obter interações do usuário
   async obterInteracoesUsuario(): Promise<InteracaoUsuario[]> {
     try {
-      const url = `${baseURL}/avaliacoes/usuario`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
+      const response = await fetch(baseURL, {
+        method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken') || ''}`
-        }
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          endpoint: 'avaliacoes/usuario'
+        }),
       });
 
       if (!response.ok) {
         throw new Error(`Erro ${response.status}: ${response.statusText}`);
       }
 
-      return await response.json();
+      const data = await response.json();
+      return data.interacoes || [];
     } catch (error) {
       console.error('Erro ao obter interações:', error);
       return [];

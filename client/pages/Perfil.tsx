@@ -58,13 +58,16 @@ export default function Perfil() {
       if (user) {
         try {
           const interacoes = await avaliacoesStorage.obterInteracoesUsuario();
-          setInteracoesUsuario(interacoes);
+          
+          // Garantir que interacoes é sempre um array
+          const interacoesArray = Array.isArray(interacoes) ? interacoes : [];
+          setInteracoesUsuario(interacoesArray);
           
           // Filtrar filmes baseado nas interações
-          const assistidos = interacoes.filter(i => i.tipo_interacao === 'assistido');
-          const favoritos = interacoes.filter(i => i.tipo_interacao === 'favorito');
-          const avaliados = interacoes.filter(i => i.tipo_interacao === 'avaliacao');
-          const queroAssistir = interacoes.filter(i => i.tipo_interacao === 'quero_ver');
+          const assistidos = interacoesArray.filter(i => i.tipo_interacao === 'assistido');
+          const favoritos = interacoesArray.filter(i => i.tipo_interacao === 'favorito');
+          const avaliados = interacoesArray.filter(i => i.tipo_interacao === 'avaliacao');
+          const queroAssistir = interacoesArray.filter(i => i.tipo_interacao === 'quero_ver');
           
           // Buscar dados dos filmes
           const filmesAssistidosData = await Promise.all(

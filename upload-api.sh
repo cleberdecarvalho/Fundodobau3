@@ -1,23 +1,27 @@
 #!/bin/bash
 
-echo "🚀 Fazendo upload da API para o servidor..."
+# Script para fazer upload do arquivo API para o Hostgator
+echo "🚀 Fazendo upload do arquivo API para o Hostgator..."
 
-# Configurações do servidor
-SERVER="162.241.2.56"
-USER="fundod14_fundodobau"
-REMOTE_PATH="/home/fundod14/public_html/"
+# Configurações do Hostgator
+HOST="fundodobau.com.br"
+USER="fundod14"
+REMOTE_DIR="public_html"
 
-# Fazer upload do arquivo
+# Fazer upload do arquivo API
 echo "📤 Enviando api-filmes.php..."
-scp hostgator/api-filmes.php $USER@$SERVER:$REMOTE_PATH
+scp hostgator/api-filmes.php $USER@$HOST:$REMOTE_DIR/
 
 if [ $? -eq 0 ]; then
     echo "✅ Upload realizado com sucesso!"
-    echo "🌐 Criando tabela no banco..."
-    curl -s "https://www.fundodobaufilmes.com/api-filmes.php" -X POST -H "Content-Type: application/json" -d '{"action":"create_table"}'
-    echo ""
-    echo "🧪 Testando API..."
-    curl -s "https://www.fundodobaufilmes.com/api-filmes.php?action=list"
+    echo "🌐 API disponível em: https://fundodobau.com.br/api-filmes.php"
 else
-    echo "❌ Erro no upload"
-fi 
+    echo "❌ Erro no upload. Verifique as credenciais SSH."
+    echo "💡 Alternativa: Faça upload manual via cPanel File Manager"
+fi
+
+echo ""
+echo "📋 Próximos passos:"
+echo "1. Execute o script SQL: database/remover_preferencias.sql"
+echo "2. Teste a API: http://localhost:8082/test-api-auth.html"
+echo "3. Teste o frontend: http://localhost:8081" 

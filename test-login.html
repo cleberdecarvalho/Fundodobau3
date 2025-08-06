@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Login Frontend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background-color: #333;
+            color: #fff;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .result {
+            background-color: #333;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            white-space: pre-wrap;
+        }
+        .success { background-color: #28a745; }
+        .error { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste Login Frontend</h1>
+    
+    <div class="container">
+        <h2>🔐 Login</h2>
+        <input type="email" id="email" placeholder="Email" value="teste@email.com">
+        <input type="password" id="senha" placeholder="Senha" value="123456">
+        <button onclick="testLogin()">Fazer Login</button>
+        <button onclick="testRegister()">Registrar</button>
+        <button onclick="testCheckAuth()">Verificar Sessão</button>
+        <div id="result" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'https://www.fundodobaufilmes.com/api-filmes.php';
+
+        async function testLogin() {
+            const email = document.getElementById('email').value;
+            const senha = document.getElementById('senha').value;
+            const resultDiv = document.getElementById('result');
+
+            try {
+                console.log('🔐 Tentando login...');
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        endpoint: 'auth/login',
+                        email, 
+                        senha 
+                    }),
+                    credentials: 'include'
+                });
+
+                console.log('📡 Resposta recebida:', response.status);
+                const data = await response.json();
+                console.log('📄 Dados:', data);
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Login realizado!\n\nUsuário: ${JSON.stringify(data.user, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Erro: ${data.error || 'Erro desconhecido'}`;
+                }
+            } catch (error) {
+                console.error('❌ Erro:', error);
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Erro de conexão: ${error.message}`;
+            }
+        }
+
+        async function testRegister() {
+            const email = 'novo@email.com';
+            const senha = '123456';
+            const nome = 'Novo Usuário';
+            const resultDiv = document.getElementById('result');
+
+            try {
+                console.log('📝 Tentando registro...');
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        endpoint: 'auth/register',
+                        nome,
+                        email, 
+                        senha 
+                    }),
+                    credentials: 'include'
+                });
+
+                console.log('📡 Resposta recebida:', response.status);
+                const data = await response.json();
+                console.log('📄 Dados:', data);
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Registro realizado!\n\nUsuário: ${JSON.stringify(data.user, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Erro: ${data.error || 'Erro desconhecido'}`;
+                }
+            } catch (error) {
+                console.error('❌ Erro:', error);
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Erro de conexão: ${error.message}`;
+            }
+        }
+
+        async function testCheckAuth() {
+            const resultDiv = document.getElementById('result');
+
+            try {
+                console.log('👤 Verificando sessão...');
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        endpoint: 'auth/me'
+                    }),
+                    credentials: 'include'
+                });
+
+                console.log('📡 Resposta recebida:', response.status);
+                const data = await response.json();
+                console.log('📄 Dados:', data);
+                
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `✅ Sessão ativa!\n\nUsuário: ${JSON.stringify(data.user, null, 2)}`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = `❌ Não autenticado: ${data.error || 'Sessão não encontrada'}`;
+                }
+            } catch (error) {
+                console.error('❌ Erro:', error);
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ Erro de conexão: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

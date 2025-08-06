@@ -1,12 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
-export interface User {
-  id: number;
-  nome: string;
-  email: string;
-  avatar?: string;
-  tipo: 'admin' | 'usuario';
-}
+import { loginUser, registerUser, logoutUser, checkAuthStatus, updateUserProfile, User } from '../utils/authStorage';
 
 interface AuthContextType {
   user: User | null;
@@ -21,36 +14,33 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Dados mock temporários para desenvolvimento
-const MOCK_USERS = [
-  {
-    id: 1,
-    nome: 'Administrador',
-    email: 'admin@fundodobau.com.br',
-    tipo: 'admin' as const,
-  },
-  {
-    id: 2,
-    nome: 'João Cinéfilo',
-    email: 'joao@email.com',
-    tipo: 'usuario' as const,
-  }
-];
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Começar com loading para verificar sessão
+
+  // Verificar se o usuário já está logado ao carregar a aplicação
+  useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const currentUser = await checkAuthStatus();
+        setUser(currentUser);
+      } catch (error) {
+        console.error('Erro ao verificar autenticação:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    checkAuth();
+  }, []);
 
   const login = async (email: string, senha: string): Promise<boolean> => {
     try {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await loginUser(email, senha);
       
-      // Mock de autenticação
-      const mockUser = MOCK_USERS.find(u => u.email === email);
-      if (mockUser && (email === 'admin@fundodobau.com.br' && senha === 'admin123' || 
-                       email === 'joao@email.com' && senha === '123456')) {
-        setUser(mockUser);
+      if (result.success && result.user) {
+        setUser(result.user);
         return true;
       }
       return false;
@@ -65,24 +55,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const register = async (nome: string, email: string, senha: string): Promise<boolean> => {
     try {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const result = await registerUser(nome, email, senha);
       
-      // Verificar se email já existe
-      const emailExists = MOCK_USERS.some(u => u.email === email);
-      if (emailExists) {
-        return false;
+      if (result.success && result.user) {
+        setUser(result.user);
+        return true;
       }
-
-      // Criar novo usuário
-      const newUser: User = {
-        id: Date.now(),
-        nome,
-        email,
-        tipo: 'usuario'
-      };
-
-      setUser(newUser);
-      return true;
+      return false;
     } catch (error) {
       console.error('Erro no registro:', error);
       return false;
@@ -94,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       setLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await logoutUser();
     } catch (error) {
       console.error('Erro no logout:', error);
     } finally {
@@ -103,10 +82,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const updateUser = (updates: Partial<User>) => {
+  const updateUser = async (updates: Partial<User>) => {
     if (user) {
-      const updatedUser = { ...user, ...updates };
-      setUser(updatedUser);
+      try {
+        const success = await updateUserProfile(updates);
+        if (success) {
+          const updatedUser = { ...user, ...updates };
+          setUser(updatedUser);
+        }
+      } catch (error) {
+        console.error('Erro ao atualizar usuário:', error);
+      }
     }
   };
 

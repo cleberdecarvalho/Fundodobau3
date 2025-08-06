@@ -124,6 +124,14 @@ $endpoint = str_replace($apiPath, '', implode('/', $pathParts));
 // Parâmetros GET
 $action = $_GET['action'] ?? '';
 
+// Para requisições POST, verificar se o endpoint está no body
+if ($method === 'POST') {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (isset($input['endpoint'])) {
+        $endpoint = $input['endpoint'];
+    }
+}
+
 if ($method === 'OPTIONS') {
     exit;
 }
