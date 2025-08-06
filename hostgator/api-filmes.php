@@ -141,12 +141,42 @@ try {
         case 'GET':
             // Listar filmes
             if ($action === 'list') {
-                $stmt = $pdo->query("SELECT * FROM filmes ORDER BY createdAt DESC");
+                $stmt = $pdo->query("
+                    SELECT 
+                        GUID,
+                        nomeOriginal,
+                        nomePortugues,
+                        ano,
+                        categoria,
+                        duracao,
+                        sinopse,
+                        embedLink,
+                        imagemUrl,
+                        videoGUID,
+                        videoStatus,
+                        assistencias,
+                        avaliacoes,
+                        createdAt,
+                        updatedAt
+                    FROM filmes 
+                    ORDER BY createdAt DESC
+                ");
                 $filmes = $stmt->fetchAll();
                 
                 // Converter JSON de volta para array
                 foreach ($filmes as &$filme) {
-                    $filme['categoria'] = json_decode($filme['categoria'], true);
+                    // Garantir que campos obrigatórios não sejam NULL
+                    $filme['nomeOriginal'] = $filme['nomeOriginal'] ?: '';
+                    $filme['nomePortugues'] = $filme['nomePortugues'] ?: '';
+                    $filme['ano'] = $filme['ano'] ?: '';
+                    $filme['duracao'] = $filme['duracao'] ?: '';
+                    $filme['categoria'] = json_decode($filme['categoria'], true) ?: [];
+                    $filme['sinopse'] = $filme['sinopse'] ?: '';
+                    $filme['embedLink'] = $filme['embedLink'] ?: '';
+                    $filme['imagemUrl'] = $filme['imagemUrl'] ?: '';
+                    $filme['videoGUID'] = $filme['videoGUID'] ?: '';
+                    $filme['videoStatus'] = $filme['videoStatus'] ?: 'Processado';
+                    $filme['assistencias'] = $filme['assistencias'] ?: 0;
                     $filme['avaliacoes'] = $filme['avaliacoes'] ? json_decode($filme['avaliacoes'], true) : null;
                 }
                 
@@ -154,15 +184,59 @@ try {
                 break;
             }
             
+            // Obter carrossel
+            if ($action === 'carrossel') {
+                try {
+                    $stmt = $pdo->query("SELECT * FROM carrossel WHERE ativo = 1 ORDER BY posicao");
+                    $carrossel = $stmt->fetchAll();
+                    
+                    echo json_encode(['success' => true, 'carrossel' => $carrossel]);
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Erro ao obter carrossel: ' . $e->getMessage()]);
+                }
+                break;
+            }
+            
             // Buscar filme por GUID
             if (preg_match('/^filmes\/([^\/]+)$/', $endpoint, $matches)) {
                 $guid = $matches[1];
-                $stmt = $pdo->prepare("SELECT * FROM filmes WHERE GUID = ?");
+                $stmt = $pdo->prepare("
+                    SELECT 
+                        GUID,
+                        nomeOriginal,
+                        nomePortugues,
+                        ano,
+                        categoria,
+                        duracao,
+                        sinopse,
+                        embedLink,
+                        imagemUrl,
+                        videoGUID,
+                        videoStatus,
+                        assistencias,
+                        avaliacoes,
+                        createdAt,
+                        updatedAt
+                    FROM filmes 
+                    WHERE GUID = ?
+                ");
                 $stmt->execute([$guid]);
                 $filme = $stmt->fetch();
                 
                 if ($filme) {
-                    $filme['categoria'] = json_decode($filme['categoria'], true);
+                    // Garantir que campos obrigatórios não sejam NULL
+                    $filme['nomeOriginal'] = $filme['nomeOriginal'] ?: '';
+                    $filme['nomePortugues'] = $filme['nomePortugues'] ?: '';
+                    $filme['ano'] = $filme['ano'] ?: '';
+                    $filme['duracao'] = $filme['duracao'] ?: '';
+                    $filme['categoria'] = json_decode($filme['categoria'], true) ?: [];
+                    $filme['sinopse'] = $filme['sinopse'] ?: '';
+                    $filme['embedLink'] = $filme['embedLink'] ?: '';
+                    $filme['imagemUrl'] = $filme['imagemUrl'] ?: '';
+                    $filme['videoGUID'] = $filme['videoGUID'] ?: '';
+                    $filme['videoStatus'] = $filme['videoStatus'] ?: 'Processado';
+                    $filme['assistencias'] = $filme['assistencias'] ?: 0;
                     $filme['avaliacoes'] = $filme['avaliacoes'] ? json_decode($filme['avaliacoes'], true) : null;
                     echo json_encode(['success' => true, 'filme' => $filme]);
                 } else {
@@ -172,16 +246,46 @@ try {
                 break;
             }
             
-            // Rota padrão - listar filmes
-            $stmt = $pdo->query("SELECT * FROM filmes ORDER BY createdAt DESC");
-            $filmes = $stmt->fetchAll();
-            
-            foreach ($filmes as &$filme) {
-                $filme['categoria'] = json_decode($filme['categoria'], true);
-                $filme['avaliacoes'] = $filme['avaliacoes'] ? json_decode($filme['avaliacoes'], true) : null;
+            // Obter configuração do carrossel - ENDPOINT SIMPLIFICADO
+            if ($endpoint === 'carrossel') {
+                header('Content-Type: application/json');
+                try {
+                    $stmt = $pdo->query("SELECT * FROM carrossel WHERE ativo = 1 ORDER BY posicao");
+                    $carrossel = $stmt->fetchAll();
+                    echo json_encode(['success' => true, 'carrossel' => $carrossel]);
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Erro ao obter carrossel: ' . $e->getMessage()]);
+                }
+                exit;
             }
             
-            echo json_encode(['success' => true, 'filmes' => $filmes]);
+            // Rota padrão - listar filmes
+            try {
+                $stmt = $pdo->query("SELECT * FROM filmes ORDER BY createdAt DESC");
+                $filmes = $stmt->fetchAll();
+                
+                foreach ($filmes as &$filme) {
+                    // Garantir que campos obrigatórios não sejam NULL
+                    $filme['nomeOriginal'] = $filme['nomeOriginal'] ?: '';
+                    $filme['nomePortugues'] = $filme['nomePortugues'] ?: '';
+                    $filme['ano'] = $filme['ano'] ?: '';
+                    $filme['duracao'] = $filme['duracao'] ?: '';
+                    $filme['categoria'] = json_decode($filme['categoria'], true) ?: [];
+                    $filme['sinopse'] = $filme['sinopse'] ?: '';
+                    $filme['embedLink'] = $filme['embedLink'] ?: '';
+                    $filme['imagemUrl'] = $filme['imagemUrl'] ?: '';
+                    $filme['videoGUID'] = $filme['videoGUID'] ?: '';
+                    $filme['videoStatus'] = $filme['videoStatus'] ?: 'Processado';
+                    $filme['assistencias'] = $filme['assistencias'] ?: 0;
+                    $filme['avaliacoes'] = $filme['avaliacoes'] ? json_decode($filme['avaliacoes'], true) : null;
+                }
+                
+                echo json_encode(['success' => true, 'filmes' => $filmes]);
+            } catch (Exception $e) {
+                error_log("Erro na consulta: " . $e->getMessage());
+                echo json_encode(['error' => 'Erro interno: ' . $e->getMessage()]);
+            }
             break;
             
         case 'PUT':
@@ -309,6 +413,116 @@ try {
                 session_start();
                 session_destroy();
                 echo json_encode(['success' => true]);
+                break;
+            }
+            
+            // Upload de imagem do carrossel
+            if ($endpoint === 'upload-imagem-carrossel') {
+                try {
+                    $imagemBase64 = $input['imagemBase64'] ?? '';
+                    $nomeFilme = $input['nomeFilme'] ?? '';
+                    $posicao = $input['posicao'] ?? 0;
+                    
+                    if (empty($imagemBase64) || empty($nomeFilme)) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Imagem e nome do filme são obrigatórios']);
+                        exit;
+                    }
+                    
+                    // Extrair dados da imagem base64
+                    $data = explode(',', $imagemBase64);
+                    if (count($data) !== 2) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Formato de imagem inválido']);
+                        exit;
+                    }
+                    
+                    $imageData = base64_decode($data[1]);
+                    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                    $mimeType = finfo_buffer($finfo, $imageData);
+                    finfo_close($finfo);
+                    
+                    // Determinar extensão baseada no MIME type
+                    $extensions = [
+                        'image/jpeg' => 'jpg',
+                        'image/jpg' => 'jpg',
+                        'image/png' => 'png',
+                        'image/gif' => 'gif',
+                        'image/webp' => 'webp'
+                    ];
+                    
+                    $extension = $extensions[$mimeType] ?? 'jpg';
+                    
+                    // Criar nome do arquivo
+                    $nomeArquivo = 'carrossel-' . $posicao . '-' . strtolower(preg_replace('/[^a-zA-Z0-9]/', '-', $nomeFilme)) . '.' . $extension;
+                    $caminhoCompleto = '/home/fundod14/public_html/images/carrossel/' . $nomeArquivo;
+                    
+                    // Garantir que o diretório existe
+                    $diretorio = dirname($caminhoCompleto);
+                    if (!is_dir($diretorio)) {
+                        mkdir($diretorio, 0755, true);
+                    }
+                    
+                    // Salvar arquivo
+                    if (file_put_contents($caminhoCompleto, $imageData)) {
+                        $caminhoUrl = '/images/carrossel/' . $nomeArquivo;
+                        echo json_encode([
+                            'success' => true,
+                            'caminho' => $caminhoUrl,
+                            'arquivo' => $nomeArquivo
+                        ]);
+                    } else {
+                        http_response_code(500);
+                        echo json_encode(['error' => 'Erro ao salvar arquivo']);
+                    }
+                    exit;
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Erro ao processar imagem: ' . $e->getMessage()]);
+                    exit;
+                }
+            }
+            
+            // Salvar configuração do carrossel
+            if ($endpoint === 'carrossel') {
+                try {
+                    if (!isset($input['carrossel']) || !is_array($input['carrossel'])) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Dados do carrossel são obrigatórios']);
+                        break;
+                    }
+                    
+                    // Limpar carrossel atual
+                    $stmt = $pdo->prepare("UPDATE carrossel SET ativo = 0");
+                    $stmt->execute();
+                    
+                    // Inserir nova configuração
+                    foreach ($input['carrossel'] as $item) {
+                        if (isset($item['posicao']) && isset($item['filmeId']) && isset($item['imagemUrl'])) {
+                            $stmt = $pdo->prepare("
+                                INSERT INTO carrossel (posicao, filmeId, imagemUrl, ativo) 
+                                VALUES (?, ?, ?, ?) 
+                                ON DUPLICATE KEY UPDATE 
+                                filmeId = VALUES(filmeId), 
+                                imagemUrl = VALUES(imagemUrl), 
+                                ativo = VALUES(ativo)
+                            ");
+                            $stmt->execute([
+                                $item['posicao'],
+                                $item['filmeId'],
+                                $item['imagemUrl'],
+                                $item['ativo'] ?? true
+                            ]);
+                        }
+                    }
+                    
+                    echo json_encode(['success' => true]);
+                    exit;
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Erro ao salvar carrossel: ' . $e->getMessage()]);
+                    exit;
+                }
                 break;
             }
             

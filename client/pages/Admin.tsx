@@ -300,13 +300,19 @@ function AdminDashboard() {
   useEffect(() => {
     async function fetchCarrossel() {
       try {
-        const response = await fetch('http://localhost:8084/api/carrossel');
+        console.log('🔄 Carregando carrossel do Hostgator...');
+        const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php?action=carrossel');
         if (response.ok) {
           const data = await response.json();
-          setCarrossel(data.carrossel);
+          console.log('✅ Carrossel carregado:', data);
+          if (data.carrossel) {
+            setCarrossel(data.carrossel);
+          }
+        } else {
+          console.error('❌ Erro ao carregar carrossel:', response.status);
         }
       } catch (error) {
-        console.error('Erro ao carregar carrossel:', error);
+        console.error('❌ Erro ao carregar carrossel:', error);
       }
     }
     fetchCarrossel();
@@ -533,16 +539,20 @@ function AdminDashboard() {
   // Funções para gerenciar o carrossel
   const handleCarrosselImageUpload = async (file: File, posicao: number, nomeFilme: string) => {
     try {
+      console.log('🖼️ Salvando imagem do carrossel:', nomeFilme, 'posição:', posicao);
+      
       const reader = new FileReader();
       reader.onload = async (e) => {
         const base64 = e.target?.result as string;
         
-        const response = await fetch('http://localhost:8084/api/salvar-imagem-carrossel', {
+        // Salvar imagem no Hostgator
+        const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            endpoint: 'upload-imagem-carrossel',
             imagemBase64: base64,
             nomeFilme: nomeFilme,
             posicao: posicao
@@ -551,34 +561,54 @@ function AdminDashboard() {
         
         if (response.ok) {
           const result = await response.json();
+          console.log('✅ Imagem do carrossel salva:', result);
+          
+          // Atualizar estado local
           const novoCarrossel = [...carrossel];
           novoCarrossel[posicao].imagemUrl = result.caminho;
           setCarrossel(novoCarrossel);
+          
+          alert('Imagem do carrossel salva com sucesso!');
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Erro ao salvar imagem do carrossel:', response.status, errorText);
+          alert(`Erro ao salvar imagem (${response.status}): ${errorText}`);
         }
       };
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Erro ao fazer upload da imagem do carrossel:', error);
+      console.error('❌ Erro ao fazer upload da imagem do carrossel:', error);
+      alert('Erro ao fazer upload da imagem. Verifique a conexão.');
     }
   };
 
   const handleSalvarCarrossel = async () => {
     try {
-      const response = await fetch('http://localhost:8084/api/carrossel', {
+      console.log('🔄 Salvando carrossel no Hostgator...');
+      
+      const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ carrossel }),
+        body: JSON.stringify({
+          endpoint: 'carrossel',
+          carrossel: carrossel
+        }),
       });
       
       if (response.ok) {
-        // Carrossel salvo com sucesso
+        const result = await response.json();
+        console.log('✅ Carrossel salvo com sucesso:', result);
+        alert('Carrossel salvo com sucesso!');
       } else {
-        console.error('Erro ao salvar carrossel');
+        const errorText = await response.text();
+        console.error('❌ Erro ao salvar carrossel:', response.status, errorText);
+        alert(`Erro ao salvar carrossel (${response.status}): ${errorText}`);
       }
     } catch (error) {
-      console.error('Erro ao salvar carrossel:', error);
+      console.error('❌ Erro ao salvar carrossel:', error);
+      alert('Erro ao salvar carrossel. Verifique a conexão.');
     }
   };
 

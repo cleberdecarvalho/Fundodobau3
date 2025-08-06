@@ -22,27 +22,30 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
 
   // Carregar dados do carrossel
   useEffect(() => {
-    async function fetchCarrossel() {
-      try {
-        const response = await fetch('http://localhost:8084/api/carrossel');
-        if (response.ok) {
-          const data = await response.json();
-          const carrosselAtivo = data.carrossel.filter((item: CarrosselItem) => item.ativo && item.filmeId && item.imagemUrl);
-          setCarrosselData(carrosselAtivo);
-          
-          // Buscar filmes correspondentes
-          const filmesCarrossel = carrosselAtivo.map((item: CarrosselItem) => {
-            const filme = filmes.find(f => f.GUID === item.filmeId);
-            return filme ? { ...filme, imagemUrl: item.imagemUrl } : null;
-          }).filter(Boolean) as Filme[];
-          
-          setCarrosselFilmes(filmesCarrossel);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar carrossel:', error);
-      }
-    }
-    fetchCarrossel();
+    // TEMPORÁRIO: Usar dados do banco diretamente até resolver problema da API
+    console.log('🎬 Usando dados do carrossel do banco (dados estáticos)');
+    
+    // Usar os primeiros 3 filmes disponíveis para o carrossel
+    const filmesParaCarrossel = filmes.slice(0, 3);
+    
+    // Dados do carrossel baseados nos filmes reais
+    const carrosselDoBanco = filmesParaCarrossel.map((filme, index) => ({
+      posicao: index,
+      filmeId: filme.GUID,
+      imagemUrl: `/images/carrossel/carrossel-${index}-${filme.nomePortugues.toLowerCase().replace(/\s+/g, '-')}.jpg`,
+      ativo: true
+    }));
+    
+    setCarrosselData(carrosselDoBanco);
+    
+    // Usar diretamente os filmes para o carrossel
+    const filmesCarrossel = filmesParaCarrossel.map((filme, index) => ({
+      ...filme,
+      imagemUrl: carrosselDoBanco[index].imagemUrl // Usar imagem do carrossel
+    }));
+    
+    console.log('🎭 Filmes do carrossel configurados:', filmesCarrossel);
+    setCarrosselFilmes(filmesCarrossel);
   }, [filmes]);
 
   // Auto-play do carousel

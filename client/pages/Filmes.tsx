@@ -126,23 +126,6 @@ export default function Filmes() {
               </div>
 
               <div className={`space-y-6 ${!isFilterOpen && 'hidden lg:block'}`}>
-                {/* Busca */}
-                <div>
-                  <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
-                    Buscar Filmes
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="text"
-                      placeholder="Digite o nome do filme..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-2 pl-10 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
-                    />
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-vintage-gold/70 h-4 w-4" />
-                  </div>
-                </div>
-
                 {/* Filtro por Década */}
                 <div>
                   <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">

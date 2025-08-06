@@ -57,6 +57,7 @@ async function salvarImagemComoArquivo(base64Data: string, nomeFilme: string): P
 export async function getFilmes(): Promise<Filme[]> {
   console.log('🔍 getFilmes() chamado');
   console.log('🔍 Ambiente:', import.meta.env.DEV ? 'DESENVOLVIMENTO' : 'PRODUÇÃO');
+  
   console.log('🔍 URL da API:', MYSQL_CONFIG.baseURL);
   
   // Durante desenvolvimento, usar MySQL da Hostgator
@@ -98,6 +99,8 @@ export async function getFilmes(): Promise<Filme[]> {
               console.log('ℹ️ Imagem já tem caminho válido para:', filme.nomePortugues);
             }
           }
+          
+          return result.filmes;
         }
         
         return result.filmes || [];
