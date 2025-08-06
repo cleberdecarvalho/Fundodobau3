@@ -27,10 +27,18 @@ export default function FilmeDetalhes() {
   const filmeParaAssistir = filme ? queroAssistir(filme.GUID) : false;
 
   useEffect(() => {
-    if (id) {
-      const filmeEncontrado = filmeStorage.obterFilmePorGUID(id);
-      setFilme(filmeEncontrado || null);
-    }
+    const carregarFilme = async () => {
+      if (id) {
+        try {
+          const filmeEncontrado = await filmeStorage.obterFilmePorGUID(id);
+          setFilme(filmeEncontrado || null);
+        } catch (error) {
+          console.error('Erro ao carregar filme:', error);
+          setFilme(null);
+        }
+      }
+    };
+    carregarFilme();
   }, [id]);
 
   if (!filme) {
@@ -99,12 +107,20 @@ export default function FilmeDetalhes() {
             <div className="lg:col-span-2">
               <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-4">
                 <div className="aspect-video rounded-lg overflow-hidden border border-vintage-gold/10">
-                  <iframe
-                    src={filme.embedLink.match(/src="([^"]*)"/)![1]}
-                    allowFullScreen
-                    className="w-full h-full"
-                    style={{ border: 'none' }}
-                  />
+                  {filme.embedLink ? (
+                    <iframe
+                      src={filme.embedLink.match(/src="([^"]*)"/)?.[1] || ''}
+                      allowFullScreen
+                      className="w-full h-full"
+                      style={{ border: 'none' }}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-vintage-black/50 flex items-center justify-center">
+                      <p className="text-vintage-cream/60 font-vintage-body">
+                        Vídeo não disponível
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

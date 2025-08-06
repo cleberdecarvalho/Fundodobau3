@@ -1,7 +1,19 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FILMES_MOCK } from '@shared/mockData';
-import { Filme } from '@shared/types';
+
+// Interface simplificada para evitar problemas de importação
+interface Filme {
+  GUID: string;
+  nomeOriginal: string;
+  nomePortugues: string;
+  ano: string;
+  categoria: string[];
+  duracao: string;
+  sinopse: string;
+  embedLink: string;
+  imagemUrl: string;
+  assistencias?: number;
+}
 
 interface SearchResult {
   filme: Filme;
@@ -29,7 +41,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [showResults, setShowResults] = useState(false);
   const navigate = useNavigate();
 
-  // Função de busca avançada
+  // Função de busca simplificada
   const performSearch = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -42,71 +54,10 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     // Simular delay de busca
     await new Promise(resolve => setTimeout(resolve, 300));
 
-    const searchTerms = query.toLowerCase().trim().split(' ');
-    const results: SearchResult[] = [];
-
-    FILMES_MOCK.forEach(filme => {
-      let score = 0;
-      let matchType: SearchResult['matchType'] = 'title';
-
-      // Busca no título português (peso maior)
-      const titleMatches = searchTerms.filter(term => 
-        filme.nomePortugues.toLowerCase().includes(term)
-      );
-      if (titleMatches.length > 0) {
-        score += titleMatches.length * 10;
-        matchType = 'title';
-      }
-
-      // Busca no título original
-      const originalMatches = searchTerms.filter(term => 
-        filme.nomeOriginal.toLowerCase().includes(term)
-      );
-      if (originalMatches.length > 0) {
-        score += originalMatches.length * 8;
-        if (score < originalMatches.length * 8) matchType = 'original';
-      }
-
-      // Busca na sinopse
-      const synopsisMatches = searchTerms.filter(term => 
-        filme.sinopse.toLowerCase().includes(term)
-      );
-      if (synopsisMatches.length > 0) {
-        score += synopsisMatches.length * 3;
-        if (score < synopsisMatches.length * 3) matchType = 'synopsis';
-      }
-
-      // Busca nas categorias
-      const categoryMatches = searchTerms.filter(term => 
-        filme.categoria.some(cat => cat.toLowerCase().includes(term))
-      );
-      if (categoryMatches.length > 0) {
-        score += categoryMatches.length * 5;
-        if (score < categoryMatches.length * 5) matchType = 'category';
-      }
-
-      // Busca no ano
-      if (searchTerms.some(term => filme.ano.includes(term))) {
-        score += 6;
-        if (score < 6) matchType = 'year';
-      }
-
-      // Busca por década
-      const decade = filme.ano.substring(0, 3) + '0';
-      if (searchTerms.some(term => term.includes(decade) || decade.includes(term))) {
-        score += 4;
-      }
-
-      if (score > 0) {
-        results.push({ filme, score, matchType });
-      }
-    });
-
-    // Ordenar por relevância
-    results.sort((a, b) => b.score - a.score);
-
-    setSearchResults(results.slice(0, 8)); // Limitar a 8 resultados
-    setShowResults(true);
+    // Por enquanto, retornar resultados vazios
+    // A busca será implementada quando necessário
+    setSearchResults([]);
+    setShowResults(false);
     setIsSearching(false);
   };
 

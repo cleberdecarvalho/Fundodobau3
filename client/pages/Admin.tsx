@@ -38,21 +38,17 @@ function AdminDashboard() {
   const pollingRef = useRef<NodeJS.Timeout|null>(null);
 
   useEffect(() => {
-    // Busca filmes da API e corrige embedLink se necessário
+    // Busca filmes da API
     async function fetchFilmes() {
       setIsLoading(true);
-      let filmesApi = await filmeStorage.obterFilmes();
-      let alterado = false;
-      const corrigidos = await Promise.all(filmesApi.map(async (filme) => {
-        if (filme.videoGUID && !filme.embedLink) {
-          alterado = true;
-          const embedLink = `<iframe src="https://iframe.mediadelivery.net/embed/256964/${filme.videoGUID}?autoplay=false&loop=false&muted=false&preload=true&responsive=true" allowfullscreen="true"></iframe>`;
-          await filmeStorage.atualizarFilme(filme.id || filme.GUID, { embedLink, videoStatus: 'Processado' });
-          return { ...filme, embedLink, videoStatus: 'Processado' };
-        }
-        return filme;
-      }));
-      setFilmes(corrigidos);
+      try {
+        const filmesApi = await filmeStorage.obterFilmes();
+        console.log('Filmes carregados:', filmesApi);
+        setFilmes(filmesApi);
+      } catch (error) {
+        console.error('Erro ao buscar filmes:', error);
+        setFilmes([]);
+      }
       setIsLoading(false);
     }
     fetchFilmes();
@@ -62,8 +58,10 @@ function AdminDashboard() {
   useEffect(() => {
     if (bunnyApiKey) {
       sessionStorage.setItem('bunnyApiKey', bunnyApiKey);
+      console.log('API Key salva:', bunnyApiKey.substring(0, 10) + '...');
     } else {
       sessionStorage.removeItem('bunnyApiKey');
+      console.log('API Key removida');
     }
   }, [bunnyApiKey]);
 
@@ -111,52 +109,120 @@ function AdminDashboard() {
 
   const handleSalvarFilme = async () => {
     setIsLoading(true);
-    if (filmeEditando) {
-      // Atualiza filme existente
-      const atualizado = { ...filmeEditando, ...novoFilme, videoStatus: (novoFilme.videoGUID && novoFilme.embedLink) ? 'Processado' : 'Processando' };
-      await filmeStorage.atualizarFilme(atualizado.id || atualizado.GUID, atualizado);
-    } else {
-      // Garante embedLink se houver videoGUID
-      let embedLink = novoFilme.embedLink;
-      if (novoFilme.videoGUID && !embedLink) {
-        embedLink = `<iframe src=\"https://iframe.mediadelivery.net/embed/256964/${novoFilme.videoGUID}?autoplay=false&loop=false&muted=false&preload=true&responsive=true\" allowfullscreen=\"true\"></iframe>`;
+    try {
+      if (filmeEditando) {
+        // Atualiza filme existente
+        const atualizado = { ...filmeEditando, ...novoFilme, videoStatus: (novoFilme.videoGUID && novoFilme.embedLink) ? 'Processado' : 'Processando' };
+        await filmeStorage.updateFilme(atualizado.id || atualizado.GUID, atualizado);
+      } else {
+        // Garante embedLink se houver videoGUID
+        let embedLink = novoFilme.embedLink;
+        if (novoFilme.videoGUID && !embedLink) {
+          embedLink = `<iframe src=\"https://iframe.mediadelivery.net/embed/256964/${novoFilme.videoGUID}?autoplay=false&loop=false&muted=false&preload=true&responsive=true\" allowfullscreen=\"true\"></iframe>`;
+        }
+        // O GUID deve vir do Bunny.net (videoGUID), se não existir, gerar um local
+        const guidFinal = novoFilme.videoGUID || novoFilme.GUID || `filme-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        console.log('GUID final:', guidFinal, 'VideoGUID do Bunny.net:', novoFilme.videoGUID);
+        
+        const novo = {
+          ...novoFilme,
+          GUID: guidFinal,
+          videoGUID: novoFilme.videoGUID || guidFinal, // Manter videoGUID se existir
+          embedLink: embedLink || novoFilme.embedLink,
+          videoStatus: novoFilme.videoGUID ? 'Processado' : 'Processando',
+          assistencias: 0,
+        };
+        const guidSalvo = await filmeStorage.addFilme(novo);
+        console.log('Filme salvo com GUID:', guidSalvo);
+        console.log('Dados completos do filme salvo:', novo);
+        setNovoFilme({
+          nomeOriginal: '',
+          nomePortugues: '',
+          ano: '',
+          categoria: [],
+          duracao: '',
+          sinopse: '',
+          imagemUrl: '',
+          embedLink: '',
+          videoGUID: '',
+          videoStatus: '',
+        });
+        setPosterPreview(null);
+        setUploadStatus('idle');
+        setUploadMsg('');
       }
-      const novo = {
-        ...novoFilme,
-        embedLink,
-        videoStatus: (novoFilme.videoGUID && embedLink) ? 'Processado' : 'Processando',
-        assistencias: 0,
-      };
-      await filmeStorage.adicionarFilme(novo);
-      setNovoFilme({
-        nomeOriginal: '',
-        nomePortugues: '',
-        ano: '',
-        categoria: [],
-        duracao: '',
-        sinopse: '',
-        imagemUrl: '',
-        embedLink: '',
-        videoGUID: '',
-        videoStatus: '',
-      });
-      setPosterPreview(null);
-      setUploadStatus('idle');
-      setUploadMsg('');
+      // Atualiza lista
+      const filmesAtualizados = await filmeStorage.obterFilmes();
+      setFilmes(filmesAtualizados);
+      setFilmeEditando(null);
+    } catch (error) {
+      console.error('Erro ao salvar filme:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      alert(`Erro ao salvar filme: ${errorMessage}. Tente novamente.`);
     }
-    // Atualiza lista
-    const filmesAtualizados = await filmeStorage.obterFilmes();
-    setFilmes(filmesAtualizados);
-    setFilmeEditando(null);
     setIsLoading(false);
     setActiveTab('filmes');
   };
 
   const handleDeletarFilme = async (id: string|number) => {
-    await filmeStorage.removerFilme(id);
-    const filmesAtualizados = await filmeStorage.obterFilmes();
-    setFilmes(filmesAtualizados);
-    setShowDeleteModal(null);
+    try {
+      // Primeiro, buscar o filme para obter o videoGUID
+      const filmesAtuais = await filmeStorage.obterFilmes();
+      const filmeParaDeletar = filmesAtuais.find(f => f.GUID === id || f.id === id);
+      
+      if (!filmeParaDeletar) {
+        throw new Error('Filme não encontrado');
+      }
+
+      // Se tem videoGUID, deletar do Bunny.net primeiro
+      if (filmeParaDeletar.videoGUID && bunnyApiKey) {
+        try {
+          console.log('Deletando vídeo do Bunny.net:', filmeParaDeletar.videoGUID);
+          console.log('API Key:', bunnyApiKey.substring(0, 10) + '...');
+          
+          const deleteResponse = await fetch(`https://video.bunnycdn.com/library/256964/videos/${filmeParaDeletar.videoGUID}`, {
+            method: 'DELETE',
+            headers: {
+              'AccessKey': bunnyApiKey,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          console.log('Status da resposta:', deleteResponse.status);
+          console.log('Headers da resposta:', Object.fromEntries(deleteResponse.headers.entries()));
+
+          if (deleteResponse.ok) {
+            console.log('✅ Vídeo deletado do Bunny.net com sucesso');
+          } else {
+            const errorText = await deleteResponse.text();
+            console.error('❌ Erro ao deletar vídeo do Bunny.net:', deleteResponse.status, deleteResponse.statusText);
+            console.error('Resposta do erro:', errorText);
+          }
+        } catch (bunnyError) {
+          console.error('❌ Erro ao deletar do Bunny.net:', bunnyError);
+          // Continua mesmo se falhar no Bunny.net
+        }
+      } else {
+        console.log('⚠️ Não foi possível deletar do Bunny.net:', {
+          temVideoGUID: !!filmeParaDeletar.videoGUID,
+          temApiKey: !!bunnyApiKey,
+          videoGUID: filmeParaDeletar.videoGUID
+        });
+      }
+
+      // Deletar da base local
+      await filmeStorage.deleteFilme(id);
+      
+      // Atualizar lista
+      const filmesAtualizados = await filmeStorage.obterFilmes();
+      setFilmes(filmesAtualizados);
+      setShowDeleteModal(null);
+      
+      console.log('Filme deletado com sucesso da base local');
+    } catch (error) {
+      console.error('Erro ao deletar filme:', error);
+      alert(`Erro ao deletar filme: ${error instanceof Error ? error.message : 'Erro desconhecido'}. Tente novamente.`);
+    }
   };
 
   // Simulação de estatísticas
@@ -199,13 +265,25 @@ function AdminDashboard() {
                 {showApiKey ? 'Ocultar' : 'Mostrar'}
               </button>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="text-xs text-red-400 underline"
-            >
-              Limpar API Key / Sair
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  localStorage.clear();
+                  alert('Cache limpo com sucesso!');
+                }}
+                className="text-xs text-yellow-400 underline"
+              >
+                Limpar Cache
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="text-xs text-red-400 underline"
+              >
+                Limpar API Key / Sair
+              </button>
+            </div>
           </div>
           {/* Header */}
           <div className="mb-8">
@@ -316,20 +394,30 @@ function AdminDashboard() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filmes.map((filme) => (
-                  <div key={filme.GUID} className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg overflow-hidden">
-                    <img src={filme.imagemUrl} alt={filme.nomePortugues} className="w-full h-48 object-cover" />
+                  <div key={filme.GUID || filme.id || Math.random()} className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg overflow-hidden">
+                    <img 
+                      src={filme.imagemUrl || 'https://images.pexels.com/photos/22483588/pexels-photo-22483588.jpeg'} 
+                      alt={filme.nomePortugues || filme.nomeOriginal || 'Filme'} 
+                      className="w-full h-48 object-cover" 
+                    />
                     <div className="p-4">
                       <h4 className="font-vintage-serif font-semibold text-vintage-cream mb-2 line-clamp-1">
-                        {filme.nomePortugues}
+                        {filme.nomePortugues || filme.nomeOriginal || 'Sem título'}
                       </h4>
                       <p className="text-vintage-cream/70 font-vintage-body text-sm mb-2 italic">
-                        "{filme.nomeOriginal}"
+                        "{filme.nomeOriginal || filme.nomePortugues || 'Sem título original'}"
                       </p>
                       <p className="text-vintage-cream/60 font-vintage-body text-sm mb-1">
-                        {filme.ano} • {filme.duracao} • {filme.assistencias} views
+                        {filme.ano || 'N/A'} • {filme.duracao || 'N/A'} • {filme.assistencias || 0} views
                       </p>
-                      {filme.embedLink && filme.videoStatus === 'Processado' && (
-                        <span className="inline-block text-xs bg-green-900 text-green-300 px-2 py-1 rounded mb-2">Vídeo pronto</span>
+                      {filme.videoGUID && (
+                        <span className={`inline-block text-xs px-2 py-1 rounded mb-2 ${
+                          filme.videoStatus === 'Processado' 
+                            ? 'bg-green-900 text-green-300' 
+                            : 'bg-yellow-900 text-yellow-300'
+                        }`}>
+                          {filme.videoStatus === 'Processado' ? 'Vídeo pronto' : 'Processando'}
+                        </span>
                       )}
                       <div className="flex space-x-2 mt-2">
                         <Button
@@ -342,7 +430,7 @@ function AdminDashboard() {
                         </Button>
                         <Button
                           size="sm"
-                          onClick={() => setShowDeleteModal(filme.GUID)}
+                          onClick={() => setShowDeleteModal(filme.GUID || filme.id)}
                           variant="outline"
                           className="bg-transparent border-red-500/30 text-red-400 hover:bg-red-500/20"
                         >
@@ -479,114 +567,28 @@ function AdminDashboard() {
                     <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
                       Vídeo do Filme
                     </label>
-                    <input
-                      type="file"
-                      accept="video/*"
-                      disabled={!bunnyApiKey}
-                      onChange={async e => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        if (!bunnyApiKey) {
-                          setUploadStatus('error');
-                          setUploadMsg('Cole a Bunny.net API Key para habilitar o upload.');
-                          return;
+                    <VideoUpload
+                      onVideoUploaded={(embedLink, guid) => {
+                        console.log('VideoUpload callback - GUID:', guid, 'EmbedLink:', embedLink);
+                        if (filmeEditando) {
+                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Processado' } : null);
+                        } else {
+                          setNovoFilme(f => ({ ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Processado' }));
                         }
-                        setUploadStatus('uploading');
-                        setUploadMsg('Enviando vídeo para Bunny.net...');
-
-                        // 1. Cria vídeo na Bunny.net diretamente
-                        let videoId = '';
-                        try {
-                          const createRes = await fetch('https://video.bunnycdn.com/library/256964/videos', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                              'AccessKey': bunnyApiKey,
-                            },
-                            body: JSON.stringify({ title: file.name }),
-                          });
-                          if (!createRes.ok) throw new Error('Erro ao criar vídeo na Bunny.net');
-                          const createData = await createRes.json();
-                          videoId = createData.guid;
-                        } catch (err) {
-                          setUploadStatus('error');
-                          setUploadMsg('Erro ao criar vídeo na Bunny.net.');
-                          return;
-                        }
-
-                        // 2. Upload do arquivo
-                        try {
-                          const uploadRes = await fetch(`https://video.bunnycdn.com/library/256964/videos/${videoId}`, {
-                            method: 'PUT',
-                            headers: {
-                              'Content-Type': file.type,
-                              'AccessKey': bunnyApiKey,
-                            },
-                            body: file,
-                          });
-                          if (!uploadRes.ok) throw new Error('Erro ao enviar vídeo para Bunny.net');
-                        } catch (err) {
-                          setUploadStatus('error');
-                          setUploadMsg('Erro ao enviar vídeo para Bunny.net.');
-                          return;
-                        }
-
-                        setUploadStatus('processing');
-                        setUploadMsg('Processando vídeo na Bunny.net...');
-
-                        // 3. Polling para status do vídeo
-                        let tries = 0;
-                        const maxTries = 20;
-                        const poll = async () => {
-                          tries++;
-                          try {
-                            const statusRes = await fetch(`https://video.bunnycdn.com/library/256964/videos/${videoId}`, {
-                              headers: { 'AccessKey': bunnyApiKey },
-                            });
-                            if (!statusRes.ok) throw new Error('Erro ao consultar status do vídeo');
-                            const statusData = await statusRes.json();
-                            if (statusData.encodeProgress === 100 && statusData.status === 3) {
-                              // Pronto!
-                              const iframe = `<iframe src=\"https://iframe.mediadelivery.net/embed/256964/${videoId}?autoplay=false&loop=false&muted=false&preload=true&responsive=true\" allowfullscreen=\"true\"></iframe>`;
-                              if (filmeEditando) {
-                                setFilmeEditando(f => f ? { ...f, videoGUID: videoId, embedLink: iframe, videoStatus: 'Processado' } : null);
-                              } else {
-                                setNovoFilme(f => ({ ...f, videoGUID: videoId, embedLink: iframe, videoStatus: 'Processado' }));
-                                // Atualizar filme salvo localmente, se existir, para status processado
-                                const filmesAtuais = filmeStorage.obterFilmes();
-                                const idx = filmesAtuais.findIndex(f => f.videoGUID === videoId || (!f.videoGUID && f.nomeOriginal === novoFilme.nomeOriginal));
-                                if (idx !== -1) {
-                                  // Atualiza apenas os campos de vídeo
-                                  filmeStorage.atualizarFilme(filmesAtuais[idx].GUID, {
-                                    videoGUID: videoId,
-                                    embedLink: iframe,
-                                    videoStatus: 'Processado',
-                                  }).then(() => {
-                                    setFilmes(filmeStorage.obterFilmes());
-                                  });
-                                }
-                              }
-                              setUploadStatus('done');
-                              setUploadMsg('Vídeo processado com sucesso!');
-                              return;
-                            } else {
-                              setUploadMsg('Aguardando processamento do vídeo na Bunny.net...');
-                            }
-                          } catch (err) {
-                            setUploadStatus('error');
-                            setUploadMsg('Erro ao consultar status do vídeo.');
-                            return;
-                          }
-                          if (tries < maxTries) {
-                            setTimeout(poll, 2000);
-                          } else {
-                            setUploadStatus('error');
-                            setUploadMsg('Tempo limite ao processar vídeo na Bunny.net.');
-                          }
-                        };
-                        poll();
+                        setUploadStatus('done');
+                        setUploadMsg('Vídeo processado com sucesso!');
                       }}
-                      className="block w-full text-sm text-vintage-cream bg-vintage-black/50 border border-vintage-gold/30 rounded-lg cursor-pointer focus:outline-none"
+                      onVideoUploading={(guid) => {
+                        console.log('VideoUpload iniciado - GUID:', guid);
+                        if (filmeEditando) {
+                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, videoStatus: 'Processando' } : null);
+                        } else {
+                          setNovoFilme(f => ({ ...f, GUID: guid, videoGUID: guid, videoStatus: 'Processando' }));
+                        }
+                      }}
+                      currentEmbedLink={filmeEditando?.embedLink || novoFilme.embedLink}
+                      filmeName={filmeEditando?.nomeOriginal || novoFilme.nomeOriginal}
+                      bunnyApiKey={bunnyApiKey}
                     />
                     {!bunnyApiKey && (
                       <div className="text-xs text-yellow-300 bg-yellow-900/60 rounded px-2 py-1 mt-1">
@@ -630,7 +632,9 @@ function AdminDashboard() {
                     ) : (
                       <Save className="h-4 w-4 mr-2" />
                     )}
-                    {isLoading ? 'Salvando...' : (filmeEditando ? 'Salvar Alterações' : 'Adicionar Filme')}
+                    {isLoading ? 'Salvando...' : (
+                      filmeEditando ? 'Salvar Alterações' : 'Adicionar Filme'
+                    )}
                   </Button>
                 </div>
                 {/* Preview */}
@@ -692,7 +696,10 @@ function AdminDashboard() {
                   Confirmar Exclusão
                 </h3>
                 <p className="text-vintage-cream/80 font-vintage-body mb-6">
-                  Tem certeza que deseja excluir este filme? Esta ação não pode ser desfeita.
+                  Tem certeza que deseja excluir este filme? Esta ação irá:
+                  <br />• Deletar o filme da base de dados local
+                  <br />• Deletar o vídeo do Bunny.net (se existir)
+                  <br />• Esta ação não pode ser desfeita.
                 </p>
                 <div className="flex space-x-4">
                   <Button

@@ -1,14 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export interface User {
-  id: string;
+  id: number;
   nome: string;
   email: string;
   avatar?: string;
   tipo: 'admin' | 'usuario';
-  filmesAssistidos: string[];
-  filmesParaAssistir: string[];
-  avaliacoes: Record<string, 'gostei' | 'gostei-muito' | 'nao-gostei'>;
 }
 
 interface AuthContextType {
@@ -19,68 +16,41 @@ interface AuthContextType {
   updateUser: (updates: Partial<User>) => void;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Usuários mock para demonstração
-const USERS_MOCK = [
+// Dados mock temporários para desenvolvimento
+const MOCK_USERS = [
   {
-    id: '1',
+    id: 1,
     nome: 'Administrador',
     email: 'admin@fundodobau.com.br',
-    senha: 'admin123',
-    avatar: '',
     tipo: 'admin' as const,
-    filmesAssistidos: [],
-    filmesParaAssistir: [],
-    avaliacoes: {}
   },
   {
-    id: '2',
+    id: 2,
     nome: 'João Cinéfilo',
     email: 'joao@email.com',
-    senha: '123456',
-    avatar: '',
     tipo: 'usuario' as const,
-    filmesAssistidos: ['b3c9e480-26bf-4cc2-b7f6-e64d8870f7b6'],
-    filmesParaAssistir: ['d5e9g602-48ch-6ee4-d9h8-g86f0092h9d8'],
-    avaliacoes: {
-      'b3c9e480-26bf-4cc2-b7f6-e64d8870f7b6': 'gostei-muito'
-    }
   }
 ];
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Verificar se há usuário logado no localStorage
-    const savedUser = localStorage.getItem('fundodobau_user');
-    if (savedUser) {
-      try {
-        const userData = JSON.parse(savedUser);
-        setUser(userData);
-      } catch (error) {
-        localStorage.removeItem('fundodobau_user');
-      }
-    }
-    setLoading(false);
-  }, []);
+  const [loading, setLoading] = useState(false); // Começar sem loading
 
   const login = async (email: string, senha: string): Promise<boolean> => {
     try {
-      // Simular chamada de API
+      // Simular delay de login
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      const foundUser = USERS_MOCK.find(u => u.email === email && u.senha === senha);
-      if (foundUser) {
-        const { senha: _, ...userWithoutPassword } = foundUser;
-        const userData = userWithoutPassword as User;
-        
-        setUser(userData);
-        localStorage.setItem('fundodobau_user', JSON.stringify(userData));
+      // Mock de autenticação
+      const mockUser = MOCK_USERS.find(u => u.email === email);
+      if (mockUser && (email === 'admin@fundodobau.com.br' && senha === 'admin123' || 
+                       email === 'joao@email.com' && senha === '123456')) {
+        setUser(mockUser);
         return true;
       }
       return false;
@@ -92,30 +62,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (nome: string, email: string, senha: string): Promise<boolean> => {
     try {
+      // Simular delay de registro
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       // Verificar se email já existe
-      const emailExists = USERS_MOCK.some(u => u.email === email);
+      const emailExists = MOCK_USERS.some(u => u.email === email);
       if (emailExists) {
         return false;
       }
 
-      // Simular criação do usuário
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      // Criar novo usuário
       const newUser: User = {
-        id: Date.now().toString(),
+        id: Date.now(),
         nome,
         email,
-        tipo: 'usuario',
-        filmesAssistidos: [],
-        filmesParaAssistir: [],
-        avaliacoes: {}
+        tipo: 'usuario'
       };
 
-      // Em um app real, salvaria no backend
-      USERS_MOCK.push({ ...newUser, senha } as any);
-      
       setUser(newUser);
-      localStorage.setItem('fundodobau_user', JSON.stringify(newUser));
       return true;
     } catch (error) {
       console.error('Erro no registro:', error);
@@ -123,29 +87,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('fundodobau_user');
+  const logout = async () => {
+    try {
+      // Simular delay de logout
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch (error) {
+      console.error('Erro no logout:', error);
+    } finally {
+      setUser(null);
+    }
   };
 
   const updateUser = (updates: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
-      localStorage.setItem('fundodobau_user', JSON.stringify(updatedUser));
     }
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-vintage-black">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-vintage-gold mx-auto mb-4"></div>
-          <p className="text-vintage-cream font-vintage-body text-lg">Carregando...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <AuthContext.Provider
@@ -156,7 +114,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         register,
         updateUser,
         isAuthenticated: !!user,
-        isAdmin: user?.tipo === 'admin'
+        isAdmin: user?.tipo === 'admin',
+        loading
       }}
     >
       {children}

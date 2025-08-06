@@ -106,7 +106,7 @@ function FilmCard({ filme }: FilmCardProps) {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <Link to={`/filme/${filme.GUID}`}>
+      <Link to={filme.GUID ? `/filme/${filme.GUID}` : '#'}>
         <div className="film-card relative">
           {/* Imagem do Filme */}
           <div className="relative overflow-hidden">
@@ -165,14 +165,14 @@ function FilmCard({ filme }: FilmCardProps) {
 
             {/* Categorias */}
             <div className="flex flex-wrap gap-1 mb-3">
-              {filme.categoria.slice(0, 2).map((cat, index) => (
-                <span
-                  key={index}
-                  className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body"
-                >
-                  {cat}
-                </span>
-              ))}
+                          {filme.categoria.slice(0, 2).map((cat, index) => (
+              <span
+                key={`${filme.GUID}-cat-${index}`}
+                className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body"
+              >
+                {cat}
+              </span>
+            ))}
               {filme.categoria.length > 2 && (
                 <span className="text-xs text-vintage-cream/50 font-vintage-body">
                   +{filme.categoria.length - 2}

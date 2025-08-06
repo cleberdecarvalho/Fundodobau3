@@ -10,19 +10,38 @@ export default function Index() {
   const [filmesPorCategoria, setFilmesPorCategoria] = useState<Record<string, Filme[]>>({});
 
   useEffect(() => {
-    const todosFilmes = filmeStorage.obterFilmes();
-    setFilmes(todosFilmes);
+    const carregarFilmes = async () => {
+      try {
+        const todosFilmes = await filmeStorage.obterFilmes();
+        console.log('Filmes carregados:', todosFilmes);
+        setFilmes(todosFilmes);
 
-    // Organizar filmes por categoria
-    const categorias = {
-      'Drama': todosFilmes.filter(f => f.categoria.includes('Drama')),
-      'Romance': todosFilmes.filter(f => f.categoria.includes('Romance')),
-      'Crime': todosFilmes.filter(f => f.categoria.includes('Crime')),
-      'Suspense': todosFilmes.filter(f => f.categoria.includes('Suspense')),
-      'Comédia': todosFilmes.filter(f => f.categoria.includes('Comédia')),
-      'Musical': todosFilmes.filter(f => f.categoria.includes('Musical')),
+        // Organizar filmes por categoria
+        const categorias = {
+          'Drama': todosFilmes.filter(f => f.categoria.includes('Drama')),
+          'Romance': todosFilmes.filter(f => f.categoria.includes('Romance')),
+          'Crime': todosFilmes.filter(f => f.categoria.includes('Crime')),
+          'Suspense': todosFilmes.filter(f => f.categoria.includes('Suspense')),
+          'Comédia': todosFilmes.filter(f => f.categoria.includes('Comédia')),
+          'Musical': todosFilmes.filter(f => f.categoria.includes('Musical')),
+        };
+        setFilmesPorCategoria(categorias);
+      } catch (error) {
+        console.error('Erro ao carregar filmes:', error);
+        // Usar dados mock em caso de erro
+        setFilmes(FILMES_DESTAQUE);
+        setFilmesPorCategoria({
+          'Drama': FILMES_DESTAQUE.filter(f => f.categoria.includes('Drama')),
+          'Romance': FILMES_DESTAQUE.filter(f => f.categoria.includes('Romance')),
+          'Crime': FILMES_DESTAQUE.filter(f => f.categoria.includes('Crime')),
+          'Suspense': FILMES_DESTAQUE.filter(f => f.categoria.includes('Suspense')),
+          'Comédia': FILMES_DESTAQUE.filter(f => f.categoria.includes('Comédia')),
+          'Musical': FILMES_DESTAQUE.filter(f => f.categoria.includes('Musical')),
+        });
+      }
     };
-    setFilmesPorCategoria(categorias);
+
+    carregarFilmes();
   }, []);
 
   const filmesDestaque = filmes.slice(0, 3);

@@ -27,10 +27,19 @@ export default function Filmes() {
   }, [searchParams]);
 
   // Obter filmes do sistema de armazenamento
-  const [filmes, setFilmes] = useState(filmeStorage.obterFilmes());
+  const [filmes, setFilmes] = useState<Filme[]>([]);
 
   useEffect(() => {
-    setFilmes(filmeStorage.obterFilmes());
+    const carregarFilmes = async () => {
+      try {
+        const filmesCarregados = await filmeStorage.obterFilmes();
+        setFilmes(filmesCarregados);
+      } catch (error) {
+        console.error('Erro ao carregar filmes:', error);
+        setFilmes([]);
+      }
+    };
+    carregarFilmes();
   }, []);
 
   // Filtrar filmes

@@ -1,0 +1,140 @@
+# =====================================================
+# .htaccess - Fundo Do Baú
+# =====================================================
+
+RewriteEngine On
+RewriteBase /
+
+# =====================================================
+# Configurações de Segurança
+# =====================================================
+
+# Proteger arquivos sensíveis
+<Files "*.sql">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "*.env">
+    Order allow,deny
+    Deny from all
+</Files>
+
+<Files "*.log">
+    Order allow,deny
+    Deny from all
+</Files>
+
+# =====================================================
+# Headers de Segurança
+# =====================================================
+
+# Proteção XSS
+Header always set X-XSS-Protection "1; mode=block"
+
+# Prevenir clickjacking
+Header always set X-Frame-Options "SAMEORIGIN"
+
+# Prevenir MIME sniffing
+Header always set X-Content-Type-Options "nosniff"
+
+# Referrer Policy
+Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+# =====================================================
+# Compressão GZIP
+# =====================================================
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/xml
+    AddOutputFilterByType DEFLATE application/xhtml+xml
+    AddOutputFilterByType DEFLATE application/rss+xml
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/x-javascript
+    AddOutputFilterByType DEFLATE application/json
+</IfModule>
+
+# =====================================================
+# Cache do Navegador
+# =====================================================
+
+<IfModule mod_expires.c>
+    ExpiresActive on
+    
+    # Imagens
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType image/svg+xml "access plus 1 month"
+    
+    # CSS e JavaScript
+    ExpiresByType text/css "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+    ExpiresByType application/x-javascript "access plus 1 month"
+    
+    # Fontes
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType application/font-woff "access plus 1 year"
+    ExpiresByType application/font-woff2 "access plus 1 year"
+    
+    # HTML
+    ExpiresByType text/html "access plus 1 hour"
+</IfModule>
+
+# =====================================================
+# Roteamento da API
+# =====================================================
+
+# Redirecionar chamadas da API para o arquivo PHP
+RewriteRule ^api/(.*)$ api-filmes.php/$1 [L,QSA]
+
+# =====================================================
+# Roteamento da SPA React
+# =====================================================
+
+# Se o arquivo/diretório não existe, redirecionar para index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule . /index.html [L]
+
+# =====================================================
+# Configurações Específicas
+# =====================================================
+
+# Permitir upload de arquivos grandes
+php_value upload_max_filesize 100M
+php_value post_max_size 100M
+php_value max_execution_time 300
+php_value max_input_time 300
+
+# =====================================================
+# Redirecionamentos
+# =====================================================
+
+# Forçar HTTPS (descomente se tiver SSL)
+# RewriteCond %{HTTPS} off
+# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Remover www (opcional)
+# RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
+# RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+
+# =====================================================
+# Configurações de Performance
+# =====================================================
+
+# Habilitar Keep-Alive
+<IfModule mod_headers.c>
+    Header set Connection keep-alive
+</IfModule>
+
+# =====================================================
+# FIM DO ARQUIVO
+# ===================================================== 
