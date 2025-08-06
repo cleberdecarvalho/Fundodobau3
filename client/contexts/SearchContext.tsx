@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { filmeStorage } from '../utils/filmeStorage';
 
 // Interface simplificada para evitar problemas de importação
 interface Filme {
@@ -28,6 +29,7 @@ interface SearchContextType {
   showResults: boolean;
   setSearchQuery: (query: string) => void;
   performSearch: (query: string) => void;
+  performDirectSearch: (query: string) => void;
   clearSearch: () => void;
   hideResults: () => void;
 }
@@ -41,7 +43,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [showResults, setShowResults] = useState(false);
   const navigate = useNavigate();
 
-  // Função de busca simplificada
+  // Função de busca real na base de dados
   const performSearch = async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -51,14 +53,69 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
 
     setIsSearching(true);
     
-    // Simular delay de busca
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Por enquanto, retornar resultados vazios
-    // A busca será implementada quando necessário
-    setSearchResults([]);
-    setShowResults(false);
-    setIsSearching(false);
+    try {
+      // Buscar todos os filmes
+      const filmes = await filmeStorage.obterFilmes();
+      const searchTerm = query.toLowerCase().trim();
+      
+      const results: SearchResult[] = [];
+      
+      filmes.forEach(filme => {
+        let score = 0;
+        let matchType: SearchResult['matchType'] = 'title';
+        
+        // Busca por título em português (maior peso)
+        if (filme.nomePortugues.toLowerCase().includes(searchTerm)) {
+          score += 100;
+          matchType = 'title';
+        }
+        
+        // Busca por título original (alto peso)
+        if (filme.nomeOriginal.toLowerCase().includes(searchTerm)) {
+          score += 90;
+          matchType = 'original';
+        }
+        
+        // Busca por ano (médio peso)
+        if (filme.ano.includes(searchTerm)) {
+          score += 50;
+          matchType = 'year';
+        }
+        
+        // Busca por categoria (baixo peso)
+        if (filme.categoria.some(cat => cat.toLowerCase().includes(searchTerm))) {
+          score += 30;
+          matchType = 'category';
+        }
+        
+        // Busca por sinopse (baixo peso)
+        if (filme.sinopse.toLowerCase().includes(searchTerm)) {
+          score += 20;
+          matchType = 'synopsis';
+        }
+        
+        // Se encontrou algum resultado, adicionar à lista
+        if (score > 0) {
+          results.push({ filme, score, matchType });
+        }
+      });
+      
+      // Ordenar por relevância (score)
+      results.sort((a, b) => b.score - a.score);
+      
+      // Limitar a 10 resultados
+      const limitedResults = results.slice(0, 10);
+      
+      setSearchResults(limitedResults);
+      setShowResults(true);
+      
+    } catch (error) {
+      console.error('Erro na busca:', error);
+      setSearchResults([]);
+      setShowResults(false);
+    } finally {
+      setIsSearching(false);
+    }
   };
 
   // Debounce da busca
@@ -81,6 +138,54 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
     setShowResults(false);
   };
 
+  // Função para busca direta (quando pressiona Enter)
+  const performDirectSearch = async (query: string) => {
+    if (!query.trim()) return;
+    
+    try {
+      const filmes = await filmeStorage.obterFilmes();
+      const searchTerm = query.toLowerCase().trim();
+      
+      // Buscar filme exato primeiro
+      const exactMatch = filmes.find(filme => 
+        filme.nomePortugues.toLowerCase() === searchTerm ||
+        filme.nomeOriginal.toLowerCase() === searchTerm
+      );
+      
+      if (exactMatch) {
+        // Navegar direto para a página do filme
+        navigate(`/filme/${exactMatch.GUID}`);
+        clearSearch();
+        return;
+      }
+      
+      // Se não encontrou match exato, buscar por similaridade
+      const similarMatches = filmes.filter(filme => 
+        filme.nomePortugues.toLowerCase().includes(searchTerm) ||
+        filme.nomeOriginal.toLowerCase().includes(searchTerm) ||
+        filme.ano.includes(searchTerm) ||
+        filme.categoria.some(cat => cat.toLowerCase().includes(searchTerm))
+      );
+      
+      if (similarMatches.length === 1) {
+        // Se encontrou apenas um resultado similar, navegar para ele
+        navigate(`/filme/${similarMatches[0].GUID}`);
+        clearSearch();
+        return;
+      }
+      
+      // Se encontrou múltiplos resultados ou nenhum, navegar para página de filmes com busca
+      navigate(`/filmes?q=${encodeURIComponent(query)}`);
+      clearSearch();
+      
+    } catch (error) {
+      console.error('Erro na busca direta:', error);
+      // Em caso de erro, navegar para página de filmes
+      navigate(`/filmes?q=${encodeURIComponent(query)}`);
+      clearSearch();
+    }
+  };
+
   const hideResults = () => {
     setShowResults(false);
   };
@@ -94,6 +199,7 @@ export function SearchProvider({ children }: { children: React.ReactNode }) {
         showResults,
         setSearchQuery,
         performSearch,
+        performDirectSearch,
         clearSearch,
         hideResults
       }}
