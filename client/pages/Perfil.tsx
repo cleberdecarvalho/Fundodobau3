@@ -7,7 +7,6 @@ import {
   Heart, 
   Eye, 
   Star, 
-  Settings, 
   LogOut, 
   Film,
   Calendar,
@@ -21,9 +20,6 @@ import {
 import { Filme } from '@shared/types';
 import { filmeStorage } from '../utils/filmeStorage';
 import { avaliacoesStorage } from '../utils/avaliacoesStorage';
-import PreferenciasModal from '../components/PreferenciasModal';
-import NotificacoesModal from '../components/NotificacoesModal';
-import PrivacidadeModal from '../components/PrivacidadeModal';
 
 type TabType = 'painel' | 'quero-assistir' | 'notas' | 'ja-assisti' | 'minha-conta';
 
@@ -33,9 +29,7 @@ export default function Perfil() {
   const [activeTab, setActiveTab] = useState<TabType>('painel');
   const [filmes, setFilmes] = useState<Filme[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showPreferencias, setShowPreferencias] = useState(false);
-  const [showNotificacoes, setShowNotificacoes] = useState(false);
-  const [showPrivacidade, setShowPrivacidade] = useState(false);
+
 
   // Carregar dados reais do usuário
   const [interacoesUsuario, setInteracoesUsuario] = useState<any[]>([]);
@@ -376,33 +370,7 @@ export default function Perfil() {
               </div>
             </div>
 
-            {/* Configurações */}
-            <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-6">
-              <h3 className="text-xl font-bold text-vintage-gold mb-4">Configurações:</h3>
-              <div className="space-y-4">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPreferencias(true)}
-                  className="w-full bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold hover:text-vintage-black"
-                >
-                  Preferências
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowNotificacoes(true)}
-                  className="w-full bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold hover:text-vintage-black"
-                >
-                  Notificações
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowPrivacidade(true)}
-                  className="w-full bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold hover:text-vintage-black"
-                >
-                  Privacidade
-                </Button>
-              </div>
-            </div>
+
           </div>
         );
 
@@ -501,19 +469,7 @@ export default function Perfil() {
         </div>
       </div>
 
-      {/* Modais */}
-      <PreferenciasModal 
-        isOpen={showPreferencias} 
-        onClose={() => setShowPreferencias(false)} 
-      />
-      <NotificacoesModal 
-        isOpen={showNotificacoes} 
-        onClose={() => setShowNotificacoes(false)} 
-      />
-      <PrivacidadeModal 
-        isOpen={showPrivacidade} 
-        onClose={() => setShowPrivacidade(false)} 
-      />
+
     </div>
   );
 }

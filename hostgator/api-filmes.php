@@ -271,6 +271,7 @@ try {
             break;
             
         case 'POST':
+        case 'PUT':
             $input = json_decode(file_get_contents('php://input'), true);
             
             // Autenticação
@@ -302,6 +303,63 @@ try {
                 echo json_encode(['success' => true]);
                 break;
             }
+            
+            // Verificar status de autenticação
+            if ($endpoint === 'auth/me') {
+                $user = getCurrentUser($pdo);
+                if ($user) {
+                    echo json_encode(['success' => true, 'user' => $user]);
+                } else {
+                    http_response_code(401);
+                    echo json_encode(['error' => 'Usuário não autenticado']);
+                }
+                break;
+            }
+            
+            // Atualizar perfil do usuário (PUT)
+            if ($endpoint === 'auth/profile' && $method === 'PUT') {
+                $user = getCurrentUser($pdo);
+                if (!$user) {
+                    http_response_code(401);
+                    echo json_encode(['error' => 'Usuário não autenticado']);
+                    break;
+                }
+                
+                $allowedFields = ['nome', 'avatar'];
+                $updates = [];
+                $values = [];
+                
+                foreach ($allowedFields as $field) {
+                    if (isset($input[$field])) {
+                        $updates[] = "$field = ?";
+                        $values[] = $input[$field];
+                    }
+                }
+                
+                if (empty($updates)) {
+                    echo json_encode(['success' => true, 'user' => $user]);
+                    break;
+                }
+                
+                $values[] = $user['id'];
+                $sql = "UPDATE usuarios SET " . implode(', ', $updates) . " WHERE id = ?";
+                $stmt = $pdo->prepare($sql);
+                
+                if ($stmt->execute($values)) {
+                    // Buscar usuário atualizado
+                    $stmt = $pdo->prepare("SELECT id, nome, email, tipo, avatar FROM usuarios WHERE id = ?");
+                    $stmt->execute([$user['id']]);
+                    $updatedUser = $stmt->fetch();
+                    
+                    echo json_encode(['success' => true, 'user' => $updatedUser]);
+                } else {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Erro ao atualizar perfil']);
+                }
+                break;
+            }
+            
+
             
             // Criar tabela (apenas para desenvolvimento)
             if ($action === 'create_table') {
@@ -945,6 +1003,8 @@ try {
             }
             
             break;
+            
+
             
         default:
             http_response_code(405);

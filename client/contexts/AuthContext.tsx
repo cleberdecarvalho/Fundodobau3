@@ -39,11 +39,11 @@ const MOCK_USERS = [
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false); // Começar sem loading
+  const [loading, setLoading] = useState(false);
 
   const login = async (email: string, senha: string): Promise<boolean> => {
     try {
-      // Simular delay de login
+      setLoading(true);
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Mock de autenticação
@@ -57,12 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Erro no login:', error);
       return false;
+    } finally {
+      setLoading(false);
     }
   };
 
   const register = async (nome: string, email: string, senha: string): Promise<boolean> => {
     try {
-      // Simular delay de registro
+      setLoading(true);
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Verificar se email já existe
@@ -84,17 +86,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Erro no registro:', error);
       return false;
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = async () => {
     try {
-      // Simular delay de logout
+      setLoading(true);
       await new Promise(resolve => setTimeout(resolve, 500));
     } catch (error) {
       console.error('Erro no logout:', error);
     } finally {
       setUser(null);
+      setLoading(false);
     }
   };
 
