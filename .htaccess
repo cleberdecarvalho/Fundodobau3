@@ -1,50 +1,40 @@
 # =====================================================
-# .htaccess - Fundo Do Baú
+# .htaccess - Fundo Do Baú - Hostgator
 # =====================================================
 
 RewriteEngine On
 RewriteBase /
 
 # =====================================================
-# Configurações de Segurança
+# CORS Headers para API
 # =====================================================
-
-# Proteger arquivos sensíveis
-<Files "*.sql">
-    Order allow,deny
-    Deny from all
-</Files>
-
-<Files "*.env">
-    Order allow,deny
-    Deny from all
-</Files>
-
-<Files "*.log">
-    Order allow,deny
-    Deny from all
-</Files>
-
-# =====================================================
-# Headers de Segurança
-# =====================================================
-
-# Proteção XSS
-Header always set X-XSS-Protection "1; mode=block"
-
-# Prevenir clickjacking
-Header always set X-Frame-Options "SAMEORIGIN"
-
-# Prevenir MIME sniffing
-Header always set X-Content-Type-Options "nosniff"
-
-# Referrer Policy
-Header always set Referrer-Policy "strict-origin-when-cross-origin"
+<IfModule mod_headers.c>
+    # Permitir CORS para API
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, Cache-Control, Pragma, Expires"
+    
+    # Headers de segurança
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Cache para assets estáticos
+    <FilesMatch "\.(css|js|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$">
+        Header set Cache-Control "max-age=31536000, public"
+    </FilesMatch>
+    
+    # Sem cache para HTML e API
+    <FilesMatch "\.(html|php)$">
+        Header set Cache-Control "no-cache, no-store, must-revalidate"
+        Header set Pragma "no-cache"
+        Header set Expires "0"
+    </FilesMatch>
+</IfModule>
 
 # =====================================================
 # Compressão GZIP
 # =====================================================
-
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/plain
     AddOutputFilterByType DEFLATE text/html
@@ -59,24 +49,53 @@ Header always set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
 # =====================================================
-# Cache do Navegador
+# Roteamento para SPA React
 # =====================================================
 
+# Redirecionar API para PHP
+RewriteRule ^api/(.*)$ api-filmes.php/$1 [L,QSA]
+
+# Redirecionar todas as outras rotas para index.html
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.html [QSA,L]
+
+# =====================================================
+# Segurança
+# =====================================================
+
+# Bloquear acesso a arquivos sensíveis
+<FilesMatch "\.(env|log|sql|md|txt|json)$">
+    Order allow,deny
+    Deny from all
+</FilesMatch>
+
+# Permitir acesso apenas a arquivos necessários
+<Files "api-filmes.php">
+    Order allow,deny
+    Allow from all
+</Files>
+
+# =====================================================
+# Otimizações de Performance
+# =====================================================
+
+# Expires headers para cache
 <IfModule mod_expires.c>
     ExpiresActive on
     
     # Imagens
-    ExpiresByType image/jpg "access plus 1 month"
-    ExpiresByType image/jpeg "access plus 1 month"
-    ExpiresByType image/gif "access plus 1 month"
-    ExpiresByType image/png "access plus 1 month"
-    ExpiresByType image/webp "access plus 1 month"
-    ExpiresByType image/svg+xml "access plus 1 month"
+    ExpiresByType image/jpg "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
     
     # CSS e JavaScript
-    ExpiresByType text/css "access plus 1 month"
-    ExpiresByType application/javascript "access plus 1 month"
-    ExpiresByType application/x-javascript "access plus 1 month"
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType application/x-javascript "access plus 1 year"
     
     # Fontes
     ExpiresByType font/woff "access plus 1 year"
@@ -84,57 +103,34 @@ Header always set Referrer-Policy "strict-origin-when-cross-origin"
     ExpiresByType application/font-woff "access plus 1 year"
     ExpiresByType application/font-woff2 "access plus 1 year"
     
-    # HTML
+    # HTML e dados
     ExpiresByType text/html "access plus 1 hour"
+    ExpiresByType application/json "access plus 1 hour"
 </IfModule>
 
 # =====================================================
-# Roteamento da API
+# Configurações PHP (se disponível)
 # =====================================================
-
-# Redirecionar chamadas da API para o arquivo PHP
-RewriteRule ^api/(.*)$ api-filmes.php/$1 [L,QSA]
-
-# =====================================================
-# Roteamento da SPA React
-# =====================================================
-
-# Se o arquivo/diretório não existe, redirecionar para index.html
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /index.html [L]
-
-# =====================================================
-# Configurações Específicas
-# =====================================================
-
-# Permitir upload de arquivos grandes
-php_value upload_max_filesize 100M
-php_value post_max_size 100M
-php_value max_execution_time 300
-php_value max_input_time 300
-
-# =====================================================
-# Redirecionamentos
-# =====================================================
-
-# Forçar HTTPS (descomente se tiver SSL)
-# RewriteCond %{HTTPS} off
-# RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-
-# Remover www (opcional)
-# RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
-# RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
-
-# =====================================================
-# Configurações de Performance
-# =====================================================
-
-# Habilitar Keep-Alive
-<IfModule mod_headers.c>
-    Header set Connection keep-alive
+<IfModule mod_php.c>
+    # Aumentar limite de upload
+    php_value upload_max_filesize 50M
+    php_value post_max_size 50M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 256M
+    
+    # Configurações de segurança
+    php_flag display_errors off
+    php_flag log_errors on
+    php_value error_log /home/*/public_html/error_log
 </IfModule>
 
 # =====================================================
-# FIM DO ARQUIVO
+# Logs de Erro
+# =====================================================
+ErrorDocument 404 /index.html
+ErrorDocument 500 /index.html
+
+# =====================================================
+# Fim do .htaccess
 # ===================================================== 

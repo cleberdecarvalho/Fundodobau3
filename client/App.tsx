@@ -6,12 +6,14 @@ import { AuthProvider } from "./contexts/AuthContext";
 import { SearchProvider } from "./contexts/SearchContext";
 import { Header } from "./components/Header";
 import { Footer } from "./components/Footer";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 import Index from "./pages/Index";
 import Filmes from "./pages/Filmes";
 import FilmeDetalhes from "./pages/FilmeDetalhes";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
 import Favoritos from "./pages/Favoritos";
+import Perfil from "./pages/Perfil";
 import NotFound from "./pages/NotFound";
 import PlaceholderPage from "./pages/PlaceholderPage";
 
@@ -30,7 +32,11 @@ const App = () => (
                     <Route path="/" element={<Index />} />
                     <Route path="/filmes" element={<Filmes />} />
                     <Route path="/filme/:id" element={<FilmeDetalhes />} />
-                    <Route path="/perfil" element={<PlaceholderPage title="Meu Perfil" />} />
+                    <Route path="/perfil" element={
+                      <ProtectedRoute>
+                        <Perfil />
+                      </ProtectedRoute>
+                    } />
                     <Route path="/favoritos" element={<Favoritos />} />
                     <Route path="/admin" element={<Admin />} />
                     <Route path="/categorias" element={<PlaceholderPage title="Categorias" />} />

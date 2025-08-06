@@ -4,27 +4,26 @@ import { ArrowLeft, Play, Clock, Calendar, Star, Heart, Eye, Check, Plus, Thumbs
 import { Button } from '@/components/ui/button';
 import { Filme } from '@shared/types';
 import { filmeStorage } from '../utils/filmeStorage';
+import { avaliacoesStorage, EstatisticasFilme } from '../utils/avaliacoesStorage';
 import { useAuth } from '../contexts/AuthContext';
-import { useFavorites } from '../hooks/useFavorites';
 
 export default function FilmeDetalhes() {
   const { id } = useParams<{ id: string }>();
   const [filme, setFilme] = useState<Filme | null>(null);
-  const { isAuthenticated } = useAuth();
+  const [estatisticas, setEstatisticas] = useState<EstatisticasFilme | null>(null);
+  const [interacoesUsuario, setInteracoesUsuario] = useState<{
+    assistido: boolean;
+    quero_ver: boolean;
+    favorito: boolean;
+    avaliacao: number | null;
+  }>({
+    assistido: false,
+    quero_ver: false,
+    favorito: false,
+    avaliacao: null
+  });
+  const { user, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-
-  const {
-    jaAssistiu,
-    queroAssistir,
-    getAvaliacao,
-    toggleAssistido,
-    toggleParaAssistir,
-    setAvaliacao
-  } = useFavorites();
-
-  const avaliacao = filme ? getAvaliacao(filme.GUID) : null;
-  const filmeJaAssistido = filme ? jaAssistiu(filme.GUID) : false;
-  const filmeParaAssistir = filme ? queroAssistir(filme.GUID) : false;
 
   useEffect(() => {
     const carregarFilme = async () => {
@@ -32,6 +31,25 @@ export default function FilmeDetalhes() {
         try {
           const filmeEncontrado = await filmeStorage.obterFilmePorGUID(id);
           setFilme(filmeEncontrado || null);
+          
+          if (filmeEncontrado) {
+            // Carregar estatísticas do filme
+            const stats = await avaliacoesStorage.obterEstatisticasFilme(filmeEncontrado.GUID);
+            setEstatisticas(stats);
+            
+            // Carregar interações do usuário se estiver logado
+            if (isAuthenticated) {
+              const interacoes = await avaliacoesStorage.obterInteracoesUsuario();
+              const filmeInteracoes = interacoes.filter(i => i.filme_guid === filmeEncontrado.GUID);
+              
+              setInteracoesUsuario({
+                assistido: filmeInteracoes.some(i => i.tipo_interacao === 'assistido'),
+                quero_ver: filmeInteracoes.some(i => i.tipo_interacao === 'quero_ver'),
+                favorito: filmeInteracoes.some(i => i.tipo_interacao === 'favorito'),
+                avaliacao: filmeInteracoes.find(i => i.tipo_interacao === 'avaliacao')?.valor || null
+              });
+            }
+          }
         } catch (error) {
           console.error('Erro ao carregar filme:', error);
           setFilme(null);
@@ -39,7 +57,7 @@ export default function FilmeDetalhes() {
       }
     };
     carregarFilme();
-  }, [id]);
+  }, [id, isAuthenticated]);
 
   if (!filme) {
     return (
@@ -52,38 +70,54 @@ export default function FilmeDetalhes() {
     );
   }
 
-  const handleAvaliacao = (tipo: 'gostei' | 'gostei-muito' | 'nao-gostei') => {
+  const handleInteracao = async (tipoInteracao: string, valor?: number) => {
     if (!isAuthenticated) {
-      navigate('/auth', { state: { from: { pathname: `/filme/${filme.GUID}` } } });
+      navigate('/auth', { state: { from: { pathname: `/filme/${filme!.GUID}` } } });
       return;
     }
-    setAvaliacao(filme.GUID, avaliacao === tipo ? null : tipo);
+
+    try {
+      const success = await avaliacoesStorage.adicionarInteracao(filme!.GUID, tipoInteracao, valor);
+      if (success) {
+        // Atualizar estado local
+        setInteracoesUsuario(prev => ({
+          ...prev,
+          [tipoInteracao]: !prev[tipoInteracao as keyof typeof prev]
+        }));
+        
+        // Recarregar estatísticas
+        const stats = await avaliacoesStorage.obterEstatisticasFilme(filme!.GUID);
+        setEstatisticas(stats);
+      }
+    } catch (error) {
+      console.error('Erro ao processar interação:', error);
+    }
   };
 
-  const handleToggleAssistido = () => {
+  const handleAvaliacao = async (valor: number) => {
     if (!isAuthenticated) {
-      navigate('/auth', { state: { from: { pathname: `/filme/${filme.GUID}` } } });
+      navigate('/auth', { state: { from: { pathname: `/filme/${filme!.GUID}` } } });
       return;
     }
-    toggleAssistido(filme.GUID);
-  };
 
-  const handleToggleParaAssistir = () => {
-    if (!isAuthenticated) {
-      navigate('/auth', { state: { from: { pathname: `/filme/${filme.GUID}` } } });
-      return;
+    try {
+      const success = await avaliacoesStorage.adicionarInteracao(filme!.GUID, 'avaliacao', valor);
+      if (success) {
+        setInteracoesUsuario(prev => ({
+          ...prev,
+          avaliacao: prev.avaliacao === valor ? null : valor
+        }));
+        
+        // Recarregar estatísticas
+        const stats = await avaliacoesStorage.obterEstatisticasFilme(filme!.GUID);
+        setEstatisticas(stats);
+      }
+    } catch (error) {
+      console.error('Erro ao processar avaliação:', error);
     }
-    toggleParaAssistir(filme.GUID);
   };
 
-  const calcularNota = () => {
-    if (!filme.avaliacoes) return 0;
-    const total = filme.avaliacoes.gostei + filme.avaliacoes.gosteiMuito + filme.avaliacoes.naoGostei;
-    if (total === 0) return 0;
-    return Math.round(
-      (filme.avaliacoes.gosteiMuito * 5 + filme.avaliacoes.gostei * 3) / total * 100
-    ) / 100;
-  };
+
 
   return (
     <div className="min-h-screen">
@@ -149,10 +183,10 @@ export default function FilmeDetalhes() {
                     <Eye className="h-4 w-4 text-vintage-gold" />
                     <span className="font-vintage-body">{filme.assistencias} visualizações</span>
                   </div>
-                  {filme.avaliacoes && (
+                  {estatisticas && estatisticas.media_avaliacao > 0 && (
                     <div className="flex items-center gap-2 text-vintage-cream/80">
                       <Star className="h-4 w-4 text-vintage-gold fill-current" />
-                      <span className="font-vintage-body">{calcularNota()}/5</span>
+                      <span className="font-vintage-body">{estatisticas.media_avaliacao.toFixed(1)}/5</span>
                     </div>
                   )}
                 </div>
@@ -186,83 +220,96 @@ export default function FilmeDetalhes() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 gap-3">
-                  <Button
-                    onClick={handleToggleAssistido}
-                    variant={filmeJaAssistido ? "default" : "outline"}
-                    className={filmeJaAssistido
-                      ? "bg-vintage-gold text-vintage-black hover:bg-vintage-gold-dark w-full"
-                      : "bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold hover:text-vintage-black w-full"
-                    }
-                  >
-                    <Check className="h-4 w-4 mr-2" />
-                    {filmeJaAssistido ? 'Assistido' : 'Já Assisti'}
-                  </Button>
+                {isAuthenticated && (
+                  <div className="grid grid-cols-1 gap-3">
+                    <Button
+                      onClick={() => handleInteracao('assistido')}
+                      variant={interacoesUsuario.assistido ? "default" : "outline"}
+                      className={interacoesUsuario.assistido
+                        ? "bg-vintage-gold text-vintage-black hover:bg-vintage-gold-dark w-full"
+                        : "bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold hover:text-vintage-black w-full"
+                      }
+                    >
+                      <Check className="h-4 w-4 mr-2" />
+                      {interacoesUsuario.assistido ? 'Assistido' : 'Já Assisti'}
+                    </Button>
 
-                  <Button
-                    onClick={handleToggleParaAssistir}
-                    variant={filmeParaAssistir ? "default" : "outline"}
-                    className={filmeParaAssistir
-                      ? "bg-vintage-gold text-vintage-black hover:bg-vintage-gold-dark w-full"
-                      : "bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold hover:text-vintage-black w-full"
-                    }
-                  >
-                    {filmeParaAssistir ? <Heart className="h-4 w-4 mr-2 fill-current" /> : <Plus className="h-4 w-4 mr-2" />}
-                    {filmeParaAssistir ? 'Na Lista' : 'Quero Ver'}
-                  </Button>
-                </div>
+                    <Button
+                      onClick={() => handleInteracao('quero_ver')}
+                      variant={interacoesUsuario.quero_ver ? "default" : "outline"}
+                      className={interacoesUsuario.quero_ver
+                        ? "bg-vintage-gold text-vintage-black hover:bg-vintage-gold-dark w-full"
+                        : "bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold hover:text-vintage-black w-full"
+                      }
+                    >
+                      {interacoesUsuario.quero_ver ? <Heart className="h-4 w-4 mr-2 fill-current" /> : <Plus className="h-4 w-4 mr-2" />}
+                      {interacoesUsuario.quero_ver ? 'Na Lista' : 'Quero Ver'}
+                    </Button>
+                  </div>
+                )}
 
-                {/* Avaliações Compactas */}
+                {/* Avaliações com Estrelas */}
                 <div className="border-t border-vintage-gold/20 pt-4">
                   <p className="text-sm font-vintage-serif font-semibold text-vintage-gold mb-3 text-center">
                     {isAuthenticated ? 'Sua Avaliação' : 'Avalie'}
                   </p>
-                  <div className="flex justify-center space-x-3">
-                    <button
-                      onClick={() => handleAvaliacao('nao-gostei')}
-                      className={`p-2 rounded-full transition-all duration-300 ${
-                        avaliacao === 'nao-gostei'
-                          ? 'bg-red-500 text-white'
-                          : 'bg-vintage-black/50 text-vintage-cream hover:bg-red-500/20'
-                      }`}
-                      title={!isAuthenticated ? "Faça login para avaliar" : "Não gostei"}
-                    >
-                      <ThumbsDown className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleAvaliacao('gostei')}
-                      className={`p-2 rounded-full transition-all duration-300 ${
-                        avaliacao === 'gostei'
-                          ? 'bg-vintage-gold text-vintage-black'
-                          : 'bg-vintage-black/50 text-vintage-cream hover:bg-vintage-gold/20'
-                      }`}
-                      title={!isAuthenticated ? "Faça login para avaliar" : "Gostei"}
-                    >
-                      <ThumbsUp className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleAvaliacao('gostei-muito')}
-                      className={`p-2 rounded-full transition-all duration-300 ${
-                        avaliacao === 'gostei-muito'
-                          ? 'bg-vintage-gold text-vintage-black'
-                          : 'bg-vintage-black/50 text-vintage-cream hover:bg-vintage-gold/20'
-                      }`}
-                      title={!isAuthenticated ? "Faça login para avaliar" : "Adorei"}
-                    >
-                      <Heart className="h-4 w-4" />
-                    </button>
-                  </div>
+                  {isAuthenticated ? (
+                    <div className="flex justify-center space-x-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <button
+                          key={star}
+                          onClick={() => handleAvaliacao(star)}
+                          className={`p-1 rounded transition-all duration-300 ${
+                            interacoesUsuario.avaliacao && interacoesUsuario.avaliacao >= star
+                              ? 'text-vintage-gold'
+                              : 'text-vintage-cream/30 hover:text-vintage-gold/50'
+                          }`}
+                          title={`${star} estrela${star > 1 ? 's' : ''}`}
+                        >
+                          <Star className="h-5 w-5" fill={interacoesUsuario.avaliacao && interacoesUsuario.avaliacao >= star ? 'currentColor' : 'none'} />
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex justify-center space-x-1">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <Star key={star} className="h-5 w-5 text-vintage-cream/30" />
+                      ))}
+                    </div>
+                  )}
                   {!isAuthenticated && (
-                    <p className="text-center text-vintage-cream/60 font-vintage-body text-xs mt-2">
-                      <button
-                        onClick={() => navigate('/auth')}
-                        className="text-vintage-gold hover:text-vintage-gold-dark transition-colors"
-                      >
-                        Login
-                      </button> para salvar
+                    <p className="text-xs text-vintage-cream/60 text-center mt-2">
+                      <span className="text-vintage-gold">Login</span> para salvar
                     </p>
                   )}
                 </div>
+
+                {/* Estatísticas do Filme */}
+                {estatisticas && (
+                  <div className="border-t border-vintage-gold/20 pt-4">
+                    <p className="text-sm font-vintage-serif font-semibold text-vintage-gold mb-3 text-center">
+                      Estatísticas
+                    </p>
+                    <div className="grid grid-cols-2 gap-4 text-center">
+                      <div>
+                        <p className="text-vintage-cream font-semibold">{estatisticas.total_assistidos}</p>
+                        <p className="text-vintage-cream/60 text-xs">Assistidos</p>
+                      </div>
+                      <div>
+                        <p className="text-vintage-cream font-semibold">{estatisticas.total_favoritos}</p>
+                        <p className="text-vintage-cream/60 text-xs">Favoritos</p>
+                      </div>
+                      <div>
+                        <p className="text-vintage-cream font-semibold">{estatisticas.total_avaliacoes}</p>
+                        <p className="text-vintage-cream/60 text-xs">Avaliações</p>
+                      </div>
+                      <div>
+                        <p className="text-vintage-cream font-semibold">{estatisticas.media_avaliacao.toFixed(1)}</p>
+                        <p className="text-vintage-cream/60 text-xs">Média</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

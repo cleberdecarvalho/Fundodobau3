@@ -802,6 +802,150 @@ try {
             
             break;
             
+        // ===== ENDPOINTS DE AVALIAÇÕES =====
+        case 'POST':
+            // Adicionar/atualizar interação do usuário
+            if (preg_match('/^avaliacoes\/([^\/]+)\/(assistido|quero_ver|favorito|avaliacao)$/', $endpoint, $matches)) {
+                $user = getCurrentUser($pdo);
+                if (!$user) {
+                    http_response_code(401);
+                    echo json_encode(['error' => 'Usuário não autenticado']);
+                    break;
+                }
+                
+                $filmeGuid = $matches[1];
+                $tipoInteracao = $matches[2];
+                $valor = null;
+                
+                if ($tipoInteracao === 'avaliacao') {
+                    $input = json_decode(file_get_contents('php://input'), true);
+                    $valor = $input['valor'] ?? null;
+                    
+                    if (!$valor || $valor < 1 || $valor > 5) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Avaliação deve ser entre 1 e 5']);
+                        break;
+                    }
+                }
+                
+                // Verificar se o filme existe
+                $stmt = $pdo->prepare("SELECT GUID FROM filmes WHERE GUID = ?");
+                $stmt->execute([$filmeGuid]);
+                if (!$stmt->fetch()) {
+                    http_response_code(404);
+                    echo json_encode(['error' => 'Filme não encontrado']);
+                    break;
+                }
+                
+                // Inserir ou atualizar interação
+                $stmt = $pdo->prepare("
+                    INSERT INTO avaliacoes_usuarios (usuario_id, filme_guid, tipo_interacao, valor) 
+                    VALUES (?, ?, ?, ?) 
+                    ON DUPLICATE KEY UPDATE valor = VALUES(valor), data_atualizacao = CURRENT_TIMESTAMP
+                ");
+                
+                $stmt->execute([$user['email'], $filmeGuid, $tipoInteracao, $valor]);
+                
+                echo json_encode(['success' => true]);
+                break;
+            }
+            
+            break;
+            
+        case 'GET':
+            // Obter interações do usuário
+            if (preg_match('/^avaliacoes\/usuario$/', $endpoint)) {
+                $user = getCurrentUser($pdo);
+                if (!$user) {
+                    http_response_code(401);
+                    echo json_encode(['error' => 'Usuário não autenticado']);
+                    break;
+                }
+                
+                $stmt = $pdo->prepare("
+                    SELECT filme_guid, tipo_interacao, valor, data_criacao 
+                    FROM avaliacoes_usuarios 
+                    WHERE usuario_id = ?
+                    ORDER BY data_criacao DESC
+                ");
+                $stmt->execute([$user['email']]);
+                $interacoes = $stmt->fetchAll();
+                
+                echo json_encode($interacoes);
+                break;
+            }
+            
+            // Obter estatísticas de um filme
+            if (preg_match('/^avaliacoes\/filme\/([^\/]+)$/', $endpoint, $matches)) {
+                $filmeGuid = $matches[1];
+                
+                $stmt = $pdo->prepare("
+                    SELECT * FROM estatisticas_filmes 
+                    WHERE filme_guid = ?
+                ");
+                $stmt->execute([$filmeGuid]);
+                $estatisticas = $stmt->fetch();
+                
+                if (!$estatisticas) {
+                    $estatisticas = [
+                        'filme_guid' => $filmeGuid,
+                        'total_assistidos' => 0,
+                        'total_quero_ver' => 0,
+                        'total_favoritos' => 0,
+                        'total_avaliacoes' => 0,
+                        'media_avaliacao' => 0.00
+                    ];
+                }
+                
+                echo json_encode($estatisticas);
+                break;
+            }
+            
+            // Obter filmes mais populares
+            if (preg_match('/^avaliacoes\/populares$/', $endpoint)) {
+                $stmt = $pdo->prepare("
+                    SELECT f.GUID, f.nomePortugues, f.nomeOriginal, f.ano, f.imagemUrl,
+                           e.total_assistidos, e.total_favoritos, e.media_avaliacao
+                    FROM filmes f
+                    LEFT JOIN estatisticas_filmes e ON f.GUID = e.filme_guid
+                    WHERE e.total_assistidos > 0 OR e.total_favoritos > 0
+                    ORDER BY e.total_assistidos DESC, e.total_favoritos DESC
+                    LIMIT 10
+                ");
+                $stmt->execute();
+                $populares = $stmt->fetchAll();
+                
+                echo json_encode($populares);
+                break;
+            }
+            
+            break;
+            
+        case 'DELETE':
+            // Remover interação do usuário
+            if (preg_match('/^avaliacoes\/([^\/]+)\/(assistido|quero_ver|favorito|avaliacao)$/', $endpoint, $matches)) {
+                $user = getCurrentUser($pdo);
+                if (!$user) {
+                    http_response_code(401);
+                    echo json_encode(['error' => 'Usuário não autenticado']);
+                    break;
+                }
+                
+                $filmeGuid = $matches[1];
+                $tipoInteracao = $matches[2];
+                
+                $stmt = $pdo->prepare("
+                    DELETE FROM avaliacoes_usuarios 
+                    WHERE usuario_id = ? AND filme_guid = ? AND tipo_interacao = ?
+                ");
+                $stmt->execute([$user['email'], $filmeGuid, $tipoInteracao]);
+                
+                echo json_encode(['success' => true]);
+                break;
+            }
+            
+            break;
+            
         default:
             http_response_code(405);
             echo json_encode(['error' => 'Método não permitido']);

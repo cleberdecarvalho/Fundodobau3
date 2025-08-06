@@ -28,10 +28,11 @@ export default function Auth() {
       if (user.tipo === 'admin') {
         navigate('/admin', { replace: true });
       } else {
-        navigate(from, { replace: true });
+        // Usuários comuns vão direto para o perfil
+        navigate('/perfil', { replace: true });
       }
     }
-  }, [user, navigate, from]);
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

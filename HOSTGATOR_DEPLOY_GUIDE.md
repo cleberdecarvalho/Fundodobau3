@@ -1,277 +1,219 @@
-# 🎬 Fundo Do Baú - Guia de Deploy no Hostgator
+# 🚀 Guia de Deploy - Fundo Do Baú para Hostgator
 
-## 📋 Visão Geral
+## 📋 Resumo das Funcionalidades Implementadas
 
-Este guia explica como fazer o deploy da plataforma **Fundo Do Baú** no Hostgator usando uma arquitetura híbrida:
+### ✅ **Sistema Completo:**
+- **Carrossel Superior** - Gerenciamento via painel admin
+- **Sliders Dinâmicos** - Sistema completo de CRUD
+- **Autenticação** - Login de admin e usuários
+- **Gerenciamento de Filmes** - CRUD completo
+- **Upload de Imagens** - Para filmes e carrossel
+- **API PHP** - Endpoints para todas as funcionalidades
 
-- **Frontend**: React estático (HTML/CSS/JS)
-- **Backend**: PHP + MySQL
-- **Upload de Vídeos**: Bunny.net (API externa)
+## 🔧 Preparação para Deploy
 
-## 🏗️ Arquitetura da Solução
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Frontend      │    │   Backend PHP   │    │   MySQL         │
-│   (Estático)    │◄──►│   (Hostgator)   │◄──►│   (Hostgator)   │
-│   React/Vite    │    │   api-filmes.php│    │   fundodobau    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │                       │
-         │                       │                       │
-         ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Bunny.net     │    │   Upload de     │    │   Dados dos     │
-│   (Vídeos)      │    │   Imagens       │    │   Usuários      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
-
-## 🚀 Passo a Passo do Deploy
-
-### 1. Preparação do Banco de Dados
-
-#### 1.1. Criar Banco MySQL
-1. Acesse o **cPanel** do Hostgator
-2. Vá em **MySQL Databases**
-3. Crie um novo banco de dados:
-   - **Nome do banco**: `fundodobau`
-   - **Usuário**: `fundodobau_user` (ou similar)
-   - **Senha**: Senha forte (guarde para usar depois)
-
-#### 1.2. Importar Estrutura
-1. Acesse o **phpMyAdmin**
-2. Selecione o banco `fundodobau`
-3. Vá na aba **SQL**
-4. Cole o conteúdo do arquivo `hostgator/filmes.sql`
-5. Clique em **Executar**
-
-### 2. Configuração do Backend PHP
-
-#### 2.1. Upload do Arquivo PHP
-1. Faça upload do arquivo `hostgator/api-filmes.php` para a raiz do seu site
-2. **Localização**: `public_html/api-filmes.php`
-
-#### 2.2. Configurar Conexão com Banco
-Edite o arquivo `api-filmes.php` e altere as configurações:
-
-```php
-// Configuração do banco
-$host = 'localhost';
-$db = 'fundodobau'; // Nome do seu banco
-$user = 'fundodobau_user'; // Seu usuário MySQL
-$pass = 'SUA_SENHA_AQUI'; // Sua senha MySQL
-```
-
-### 3. Build do Frontend
-
-#### 3.1. Configurar Ambiente de Produção
-No arquivo `client/lib/api.ts`, verifique se a configuração está correta:
-
-```typescript
-production: {
-  baseURL: '/api-filmes.php', // Relativo ao domínio
-  timeout: 15000,
-  headers: {
-    'Content-Type': 'application/json',
-  }
-}
-```
-
-#### 3.2. Gerar Build Estático
+### 1. **Build da Versão Estática**
 ```bash
-# No diretório do projeto
-npm run build:client
+# Na raiz do projeto
+npm run build:hostgator
 ```
 
-Isso gerará os arquivos estáticos em `dist/spa/`
+### 2. **Arquivos Gerados**
+O build gera a pasta `dist/hostgator/` com:
+- `index.html` - Página principal
+- `assets/` - CSS, JS e recursos
+- `images/` - Pasta para imagens
+- `api-filmes.php` - API PHP
+- `filmes.sql` - Estrutura do banco
+- `BUILD_REPORT.md` - Relatório detalhado
 
-### 4. Upload do Frontend
+## 📁 Estrutura de Arquivos para Upload
 
-#### 4.1. Upload dos Arquivos
-1. Acesse o **File Manager** do cPanel
-2. Navegue até `public_html`
-3. Faça upload de **todos** os arquivos da pasta `dist/spa/`
-4. **Importante**: Mantenha a estrutura de pastas
-
-#### 4.2. Verificar Estrutura
-A estrutura final deve ficar assim:
 ```
 public_html/
 ├── index.html
 ├── assets/
-│   ├── index-*.css
-│   └── index-*.js
-├── favicon.ico
-├── robots.txt
-└── api-filmes.php
+│   ├── css/
+│   ├── js/
+│   └── images/
+├── images/
+│   ├── filmes/
+│   └── carrossel/
+├── api-filmes.php
+├── .htaccess
+└── filmes.sql
 ```
 
-### 5. Configuração de Domínio
+## 🗄️ Configuração do Banco MySQL
 
-#### 5.1. Configurar .htaccess (Opcional)
-Crie um arquivo `.htaccess` na raiz para melhorar o roteamento:
+### 1. **Acessar phpMyAdmin**
+- Login no cPanel do Hostgator
+- Acessar "phpMyAdmin"
 
+### 2. **Criar Banco de Dados**
+```sql
+-- Criar banco de dados
+CREATE DATABASE fundodobau_db;
+USE fundodobau_db;
+
+-- Importar estrutura
+SOURCE filmes.sql;
+```
+
+### 3. **Configurar API PHP**
+Editar `api-filmes.php` com suas credenciais:
+```php
+$host = 'localhost';
+$dbname = 'fundodobau_db';
+$username = 'seu_usuario';
+$password = 'sua_senha';
+```
+
+## 🔐 Configuração de Autenticação
+
+### **Credenciais de Administrador:**
+- **Email:** admin@fundodobau.com.br
+- **Senha:** admin123
+
+### **Credenciais de Usuário:**
+- **Email:** joao@email.com
+- **Senha:** 123456
+
+## 📤 Processo de Upload
+
+### 1. **Via FTP/cPanel File Manager**
+```bash
+# Upload de todos os arquivos de dist/hostgator/
+# para public_html/
+```
+
+### 2. **Configurar .htaccess**
 ```apache
 RewriteEngine On
 RewriteBase /
 
-# Redirecionar API para PHP
-RewriteRule ^api/(.*)$ api-filmes.php/$1 [L,QSA]
-
-# Para SPA React - redirecionar tudo para index.html
+# Redirecionar todas as rotas para index.html
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule . /index.html [L]
+RewriteRule ^(.*)$ index.html [QSA,L]
+
+# Permitir CORS para API
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization"
+</IfModule>
 ```
+
+## 🎯 Funcionalidades Disponíveis
+
+### **Página Inicial:**
+- ✅ Carrossel superior configurável
+- ✅ Sliders dinâmicos por categoria/década
+- ✅ Sliders personalizados
+- ✅ Navegação responsiva
+
+### **Painel Administrativo:**
+- ✅ Login de administrador
+- ✅ Gerenciamento de filmes
+- ✅ Configuração do carrossel
+- ✅ Criação/edição de sliders
+- ✅ Upload de imagens
+
+### **Sistema de Filmes:**
+- ✅ Catálogo completo
+- ✅ Filtros por categoria/década
+- ✅ Busca de filmes
+- ✅ Páginas de detalhes
 
 ## 🔧 Configurações Específicas
 
-### 1. Upload de Imagens
-- **Pasta**: `public_html/images/filmes/`
-- **Permissões**: 755
-- **Formatos**: JPG, PNG, WebP
+### **1. Carrossel Superior**
+- Acesse `/admin` → "Carrossel Superior"
+- Selecione filmes e faça upload de imagens
+- Ative/desative posições conforme necessário
 
-### 2. Bunny.net
-- **API Key**: Configure no painel admin
-- **Library ID**: 256964 (ou sua biblioteca)
-- **Zona**: Sua zona de CDN
+### **2. Sliders Dinâmicos**
+- Acesse `/admin` → "Sliders"
+- Crie sliders por categoria, década ou personalizados
+- Configure títulos e selecione filmes
 
-### 3. Segurança
-- **HTTPS**: Ative SSL no cPanel
-- **Permissões**: Configure corretamente as permissões dos arquivos
-- **Backup**: Configure backup automático do banco
+### **3. Gerenciamento de Filmes**
+- Acesse `/admin` → "Gerenciar Filmes"
+- Adicione, edite ou remova filmes
+- Configure categorias, sinopses e imagens
 
-## 🧪 Testes Pós-Deploy
+## 🚨 Troubleshooting
 
-### 1. Testar Frontend
+### **Problema: API não responde**
 ```bash
-# Acesse seu domínio
-https://seudominio.com
+# Verificar permissões
+chmod 644 api-filmes.php
+chmod 755 images/
 
-# Verifique se carrega sem erros
-# Teste navegação entre páginas
+# Verificar logs de erro
+tail -f /home/usuario/public_html/error_log
 ```
 
-### 2. Testar API
+### **Problema: Imagens não carregam**
 ```bash
-# Testar listagem de filmes
-curl https://seudominio.com/api-filmes.php/filmes
-
-# Testar autenticação
-curl -X POST https://seudominio.com/api-filmes.php/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@fundodobau.com.br","senha":"admin123"}'
+# Verificar permissões das pastas
+chmod 755 images/filmes/
+chmod 755 images/carrossel/
+chmod 644 images/filmes/*
+chmod 644 images/carrossel/*
 ```
 
-### 3. Testar Funcionalidades
-- ✅ Login/Registro de usuários
-- ✅ Listagem de filmes
-- ✅ Busca e filtros
-- ✅ Favoritos e avaliações
-- ✅ Upload de imagens
-- ✅ Upload de vídeos (Bunny.net)
-
-## 🔍 Troubleshooting
-
-### Problema: API não responde
-**Solução:**
-1. Verificar permissões do arquivo PHP (644)
-2. Verificar configuração do banco
-3. Verificar logs de erro do PHP
-
-### Problema: Frontend não carrega
-**Solução:**
-1. Verificar se todos os arquivos foram uploadados
-2. Verificar permissões das pastas (755)
-3. Verificar console do navegador para erros
-
-### Problema: Upload não funciona
-**Solução:**
-1. Verificar permissões da pasta `images/` (755)
-2. Verificar configuração do Bunny.net
-3. Verificar limite de upload do PHP
-
-### Problema: Banco não conecta
-**Solução:**
-1. Verificar credenciais no `api-filmes.php`
-2. Verificar se o banco foi criado
-3. Verificar se o usuário tem permissões
+### **Problema: Login não funciona**
+- Verificar se o banco está configurado
+- Confirmar credenciais no `api-filmes.php`
+- Testar conexão MySQL
 
 ## 📊 Monitoramento
 
-### 1. Logs de Erro
-- **PHP**: `/error_log` (configurável)
-- **MySQL**: Logs do cPanel
-- **Frontend**: Console do navegador
+### **Logs Importantes:**
+- `/home/usuario/public_html/error_log`
+- `/home/usuario/logs/access_log`
 
-### 2. Métricas
-- **Performance**: Google PageSpeed Insights
-- **SEO**: Google Search Console
-- **Analytics**: Google Analytics
+### **Métricas a Acompanhar:**
+- Performance da API
+- Upload de imagens
+- Acesso ao painel admin
+- Uso do banco de dados
 
-### 3. Backup
-- **Banco**: Backup automático via cPanel
-- **Arquivos**: Backup manual periódico
-- **Configurações**: Documentar todas as configurações
+## 🔄 Atualizações
 
-## 🚀 Otimizações
+### **Para atualizar o site:**
+1. Fazer build local: `npm run build:hostgator`
+2. Fazer backup dos dados no banco
+3. Upload dos novos arquivos
+4. Testar funcionalidades
 
-### 1. Performance
-- **CDN**: Configure CDN para assets estáticos
-- **Cache**: Configure cache do navegador
-- **Compressão**: Ative GZIP no servidor
+### **Para atualizar configurações:**
+- Carrossel: Via painel admin
+- Sliders: Via painel admin
+- Filmes: Via painel admin
 
-### 2. SEO
-- **Meta tags**: Configure corretamente
-- **Sitemap**: Gere sitemap.xml
-- **Robots.txt**: Configure adequadamente
+## 📞 Suporte
 
-### 3. Segurança
-- **HTTPS**: Sempre use HTTPS
-- **Headers**: Configure headers de segurança
-- **Backup**: Backup regular dos dados
-
-## 📝 Checklist Final
-
-### ✅ Pré-Deploy
-- [ ] Banco MySQL criado
-- [ ] Estrutura do banco importada
-- [ ] Arquivo PHP configurado
-- [ ] Build do frontend gerado
-- [ ] Bunny.net configurado
-
-### ✅ Deploy
-- [ ] Arquivos PHP uploadados
-- [ ] Frontend estático uploadado
-- [ ] Permissões configuradas
-- [ ] .htaccess configurado (opcional)
-
-### ✅ Pós-Deploy
-- [ ] Frontend carrega corretamente
-- [ ] API responde adequadamente
-- [ ] Login/registro funcionando
-- [ ] Upload de mídia funcionando
-- [ ] Todas as funcionalidades testadas
-
-### ✅ Otimizações
-- [ ] HTTPS configurado
-- [ ] Performance otimizada
-- [ ] SEO configurado
-- [ ] Backup configurado
-- [ ] Monitoramento ativo
-
-## 🎉 Conclusão
-
-Com este guia, você terá uma plataforma de filmes completa e funcional no Hostgator, com:
-
-- ✅ **Frontend moderno** (React/Vite)
-- ✅ **Backend robusto** (PHP/MySQL)
-- ✅ **Funcionalidades completas** (usuários, favoritos, avaliações)
-- ✅ **Upload de mídia** (imagens + vídeos)
-- ✅ **Deploy estático** (compatível com Hostgator)
-- ✅ **Performance otimizada**
-- ✅ **Segurança implementada**
+### **Em caso de problemas:**
+1. Verificar logs de erro
+2. Testar conectividade do banco
+3. Verificar permissões de arquivos
+4. Consultar documentação do Hostgator
 
 ---
 
-**🎬 Fundo Do Baú - Plataforma de Cinema Vintage**
-*Deploy híbrido: Frontend estático + Backend PHP/MySQL* 
+## 🎉 Deploy Concluído!
+
+Após seguir este guia, você terá:
+- ✅ Site totalmente funcional
+- ✅ Painel administrativo ativo
+- ✅ Sistema de carrossel e sliders
+- ✅ Gerenciamento completo de filmes
+- ✅ Autenticação de usuários
+
+**URLs importantes:**
+- **Site:** https://seudominio.com
+- **Admin:** https://seudominio.com/admin
+- **Login:** https://seudominio.com/auth 
