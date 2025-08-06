@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { CATEGORIAS } from '@shared/types';
@@ -22,12 +22,12 @@ function AdminDashboard() {
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
 
   const [novoFilme, setNovoFilme] = useState({
-    nomeOriginal: 'Teste',
-    nomePortugues: 'Teste',
-    ano: '1995',
-    categoria: ['Crime'] as string[],
-    duracao: '1h30',
-    sinopse: 'teste teste teste teste teste teste teste teste teste',
+    nomeOriginal: '',
+    nomePortugues: '',
+    ano: '',
+    categoria: [] as string[],
+    duracao: '',
+    sinopse: '',
     imagemUrl: '',
     embedLink: '',
     videoGUID: '',
@@ -36,6 +36,57 @@ function AdminDashboard() {
   const [uploadStatus, setUploadStatus] = useState<'idle'|'uploading'|'processing'|'done'|'error'>('idle');
   const [uploadMsg, setUploadMsg] = useState<string>('');
   const pollingRef = useRef<NodeJS.Timeout|null>(null);
+  
+  // Função simples para verificar status do vídeo no Bunny.net
+  const verificarStatusVideo = async (videoGUID: string): Promise<string> => {
+    try {
+      const response = await fetch(`https://video.bunnycdn.com/library/256964/videos/${videoGUID}`, {
+        headers: { 'AccessKey': bunnyApiKey }
+      });
+      
+      if (!response.ok) {
+        return 'Erro';
+      }
+      
+      const data = await response.json();
+      
+      if (data.encoded) {
+        return 'Vídeo Pronto';
+      } else if (data.status === 'uploading') {
+        return 'Enviando';
+      } else if (data.status === 'processing') {
+        return 'Processando';
+      } else if (data.status === 'transcoding') {
+        return 'Transcodificando';
+      } else if (data.status === 'error') {
+        return 'Erro';
+      } else {
+        return 'Processando';
+      }
+    } catch (error) {
+      console.error('Erro ao verificar status do vídeo:', error);
+      return 'Erro';
+    }
+  };
+
+  // Função para limpar formulário
+  const limparFormulario = () => {
+    setNovoFilme({
+      nomeOriginal: '',
+      nomePortugues: '',
+      ano: '',
+      categoria: [],
+      duracao: '',
+      sinopse: '',
+      imagemUrl: '',
+      embedLink: '',
+      videoGUID: '',
+      videoStatus: '',
+    });
+    setPosterPreview(null);
+    setUploadStatus('idle');
+    setUploadMsg('');
+  };
 
   useEffect(() => {
     // Busca filmes da API
@@ -45,6 +96,24 @@ function AdminDashboard() {
         const filmesApi = await filmeStorage.obterFilmes();
         console.log('Filmes carregados:', filmesApi);
         setFilmes(filmesApi);
+        
+                // Atualizar status dos vídeos que não estão prontos
+        if (bunnyApiKey) {
+          for (const filme of filmesApi) {
+            if (filme.videoGUID && filme.videoStatus !== 'Vídeo Pronto' && filme.videoStatus !== 'Erro') {
+              try {
+                const novoStatus = await verificarStatusVideo(filme.videoGUID);
+                if (novoStatus !== filme.videoStatus) {
+                  filme.videoStatus = novoStatus;
+                  await filmeStorage.updateFilme(filme.GUID, filme);
+                }
+              } catch (error) {
+                console.error(`Erro ao verificar status do filme ${filme.videoGUID}:`, error);
+              }
+            }
+          }
+          setFilmes([...filmesApi]);
+        }
       } catch (error) {
         console.error('Erro ao buscar filmes:', error);
         setFilmes([]);
@@ -52,7 +121,7 @@ function AdminDashboard() {
       setIsLoading(false);
     }
     fetchFilmes();
-  }, []);
+  }, [bunnyApiKey]);
 
   // Salva a key na sessionStorage sempre que mudar
   useEffect(() => {
@@ -74,6 +143,13 @@ function AdminDashboard() {
       setNovoFilme(f => ({ ...f, videoGUID: '', embedLink: '', videoStatus: '' }));
     }
   }, [activeTab, filmeEditando]);
+
+  // Limpar formulário quando entrar na aba "Novo Filme"
+  useEffect(() => {
+    if (activeTab === 'novo-filme' && !filmeEditando) {
+      limparFormulario();
+    }
+  }, [activeTab]);
 
   // Funções utilitárias
   const toggleCategoria = (categoria: string, isEditando: boolean) => {
@@ -129,27 +205,13 @@ function AdminDashboard() {
           GUID: guidFinal,
           videoGUID: novoFilme.videoGUID || guidFinal, // Manter videoGUID se existir
           embedLink: embedLink || novoFilme.embedLink,
-          videoStatus: novoFilme.videoGUID ? 'Processado' : 'Processando',
+          videoStatus: 'Enviando', // Sempre começa como "Enviando" para novos vídeos
           assistencias: 0,
         };
         const guidSalvo = await filmeStorage.addFilme(novo);
         console.log('Filme salvo com GUID:', guidSalvo);
         console.log('Dados completos do filme salvo:', novo);
-        setNovoFilme({
-          nomeOriginal: '',
-          nomePortugues: '',
-          ano: '',
-          categoria: [],
-          duracao: '',
-          sinopse: '',
-          imagemUrl: '',
-          embedLink: '',
-          videoGUID: '',
-          videoStatus: '',
-        });
-        setPosterPreview(null);
-        setUploadStatus('idle');
-        setUploadMsg('');
+        limparFormulario();
       }
       // Atualiza lista
       const filmesAtualizados = await filmeStorage.obterFilmes();
@@ -269,8 +331,33 @@ function AdminDashboard() {
               <button
                 type="button"
                 onClick={() => {
+                  const filmes = localStorage.getItem('filmes');
+                  const count = filmes ? JSON.parse(filmes).length : 0;
+                  console.log('Conteúdo completo do localStorage:', filmes);
+                  alert(`Filmes salvos no localStorage: ${count}\nVer console para detalhes`);
+                }}
+                className="text-xs text-blue-400 underline mr-2"
+              >
+                Ver Cache
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const filmes = await filmeStorage.obterFilmes();
+                  setFilmes(filmes);
+                  console.log('Filmes recarregados:', filmes);
+                  alert(`Filmes recarregados: ${filmes.length}`);
+                }}
+                className="text-xs text-green-400 underline mr-2"
+              >
+                Recarregar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
                   localStorage.clear();
                   alert('Cache limpo com sucesso!');
+                  window.location.reload();
                 }}
                 className="text-xs text-yellow-400 underline"
               >
@@ -366,31 +453,64 @@ function AdminDashboard() {
                 <h3 className="text-xl font-vintage-serif font-semibold text-vintage-gold">
                   Lista de Filmes ({filmes.length})
                 </h3>
-                <div className="flex space-x-2">
-                  <Button
-                    onClick={() => {
-                      const dataStr = JSON.stringify(filmes, null, 2);
-                      const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-                      const exportFileDefaultName = 'filmes.json';
-                      const linkElement = document.createElement('a');
-                      linkElement.setAttribute('href', dataUri);
-                      linkElement.setAttribute('download', exportFileDefaultName);
-                      linkElement.click();
-                    }}
-                    variant="outline"
-                    className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Exportar Dados
-                  </Button>
-                  <Button
-                    onClick={() => setActiveTab('novo-filme')}
-                    className="btn-vintage"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Novo Filme
-                  </Button>
-                </div>
+                                  <div className="flex space-x-2">
+                    <Button
+                      onClick={async () => {
+                        if (bunnyApiKey) {
+                          setIsLoading(true);
+                          try {
+                            const filmesAtualizados = [...filmes];
+                            for (const filme of filmesAtualizados) {
+                              if (filme.videoGUID && filme.videoStatus !== 'Vídeo Pronto' && filme.videoStatus !== 'Erro') {
+                                const novoStatus = await verificarStatusVideo(filme.videoGUID);
+                                if (novoStatus !== filme.videoStatus) {
+                                  filme.videoStatus = novoStatus;
+                                  await filmeStorage.updateFilme(filme.GUID, filme);
+                                }
+                              }
+                            }
+                            setFilmes(filmesAtualizados);
+                            alert('Status dos vídeos atualizados!');
+                          } catch (error) {
+                            console.error('Erro ao atualizar status:', error);
+                            alert('Erro ao atualizar status dos vídeos');
+                          }
+                          setIsLoading(false);
+                        } else {
+                          alert('Configure a API Key do Bunny.net primeiro');
+                        }
+                      }}
+                      variant="outline"
+                      className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                      disabled={isLoading}
+                    >
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      {isLoading ? 'Atualizando...' : 'Atualizar Status'}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        const dataStr = JSON.stringify(filmes, null, 2);
+                        const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+                        const exportFileDefaultName = 'filmes.json';
+                        const linkElement = document.createElement('a');
+                        linkElement.setAttribute('href', dataUri);
+                        linkElement.setAttribute('download', exportFileDefaultName);
+                        linkElement.click();
+                      }}
+                      variant="outline"
+                      className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Exportar Dados
+                    </Button>
+                    <Button
+                      onClick={() => setActiveTab('novo-filme')}
+                      className="btn-vintage"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Novo Filme
+                    </Button>
+                  </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filmes.map((filme) => (
@@ -412,11 +532,13 @@ function AdminDashboard() {
                       </p>
                       {filme.videoGUID && (
                         <span className={`inline-block text-xs px-2 py-1 rounded mb-2 ${
-                          filme.videoStatus === 'Processado' 
+                          filme.videoStatus === 'Vídeo Pronto' 
                             ? 'bg-green-900 text-green-300' 
+                            : filme.videoStatus === 'Erro'
+                            ? 'bg-red-900 text-red-300'
                             : 'bg-yellow-900 text-yellow-300'
                         }`}>
-                          {filme.videoStatus === 'Processado' ? 'Vídeo pronto' : 'Processando'}
+                          {filme.videoStatus || 'Processando'}
                         </span>
                       )}
                       <div className="flex space-x-2 mt-2">
@@ -571,19 +693,19 @@ function AdminDashboard() {
                       onVideoUploaded={(embedLink, guid) => {
                         console.log('VideoUpload callback - GUID:', guid, 'EmbedLink:', embedLink);
                         if (filmeEditando) {
-                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Processado' } : null);
+                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Enviando' } : null);
                         } else {
-                          setNovoFilme(f => ({ ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Processado' }));
+                          setNovoFilme(f => ({ ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Enviando' }));
                         }
                         setUploadStatus('done');
-                        setUploadMsg('Vídeo processado com sucesso!');
+                        setUploadMsg('Vídeo enviado! Monitorando processamento...');
                       }}
                       onVideoUploading={(guid) => {
                         console.log('VideoUpload iniciado - GUID:', guid);
                         if (filmeEditando) {
-                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, videoStatus: 'Processando' } : null);
+                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, videoStatus: 'Enviando' } : null);
                         } else {
-                          setNovoFilme(f => ({ ...f, GUID: guid, videoGUID: guid, videoStatus: 'Processando' }));
+                          setNovoFilme(f => ({ ...f, GUID: guid, videoGUID: guid, videoStatus: 'Enviando' }));
                         }
                       }}
                       currentEmbedLink={filmeEditando?.embedLink || novoFilme.embedLink}
@@ -622,20 +744,32 @@ function AdminDashboard() {
                       placeholder="Digite a sinopse do filme..."
                     />
                   </div>
-                  <Button
-                    onClick={handleSalvarFilme}
-                    disabled={isLoading}
-                    className="btn-vintage w-full"
-                  >
-                    {isLoading ? (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-vintage-black mr-2"></div>
-                    ) : (
-                      <Save className="h-4 w-4 mr-2" />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleSalvarFilme}
+                      disabled={isLoading}
+                      className="btn-vintage flex-1"
+                    >
+                      {isLoading ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-vintage-black mr-2"></div>
+                      ) : (
+                        <Save className="h-4 w-4 mr-2" />
+                      )}
+                      {isLoading ? 'Salvando...' : (
+                        filmeEditando ? 'Salvar Alterações' : 'Adicionar Filme'
+                      )}
+                    </Button>
+                    {!filmeEditando && (
+                      <Button
+                        onClick={limparFormulario}
+                        variant="outline"
+                        className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Limpar
+                      </Button>
                     )}
-                    {isLoading ? 'Salvando...' : (
-                      filmeEditando ? 'Salvar Alterações' : 'Adicionar Filme'
-                    )}
-                  </Button>
+                  </div>
                 </div>
                 {/* Preview */}
                 <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-6">
