@@ -410,6 +410,37 @@ try {
                 break;
             }
             
+            // Estatísticas de usuários
+            if ($endpoint === 'stats/usuarios') {
+                try {
+                    // Contar total de usuários
+                    $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM usuarios WHERE ativo = 1");
+                    $stmt->execute();
+                    $totalUsuarios = $stmt->fetch()['total'];
+
+                    // Contar avaliações recentes (últimos 7 dias) - com fallback se tabela não existir
+                    $novasAvaliacoes = 0;
+                    try {
+                        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM avaliacoes_usuarios WHERE data_criacao >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+                        $stmt->execute();
+                        $novasAvaliacoes = $stmt->fetch()['total'];
+                    } catch (Exception $e) {
+                        // Tabela não existe, usar 0
+                        $novasAvaliacoes = 0;
+                    }
+
+                    echo json_encode([
+                        'success' => true,
+                        'totalUsuarios' => $totalUsuarios,
+                        'novasAvaliacoes' => $novasAvaliacoes
+                    ]);
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Erro ao buscar estatísticas: ' . $e->getMessage()]);
+                }
+                break;
+            }
+
             // Atualizar perfil do usuário (PUT)
             if ($endpoint === 'auth/profile' && $method === 'PUT') {
                 $user = getCurrentUser($pdo);

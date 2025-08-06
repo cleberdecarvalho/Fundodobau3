@@ -181,12 +181,12 @@ export default function FilmeDetalhes() {
                   </div>
                   <div className="flex items-center gap-2 text-vintage-cream/80">
                     <Eye className="h-4 w-4 text-vintage-gold" />
-                    <span className="font-vintage-body">{filme.assistencias} visualizações</span>
+                                            <span className="font-vintage-body">{filme.assistencias || 0} visualizações</span>
                   </div>
                   {estatisticas && estatisticas.media_avaliacao > 0 && (
                     <div className="flex items-center gap-2 text-vintage-cream/80">
                       <Star className="h-4 w-4 text-vintage-gold fill-current" />
-                      <span className="font-vintage-body">{estatisticas.media_avaliacao.toFixed(1)}/5</span>
+                                              <span className="font-vintage-body">{estatisticas.media_avaliacao ? estatisticas.media_avaliacao.toFixed(1) : '0.0'}/5</span>
                     </div>
                   )}
                 </div>
@@ -292,19 +292,19 @@ export default function FilmeDetalhes() {
                     </p>
                     <div className="grid grid-cols-2 gap-4 text-center">
                       <div>
-                        <p className="text-vintage-cream font-semibold">{estatisticas.total_assistidos}</p>
+                        <p className="text-vintage-cream font-semibold">{estatisticas.total_assistidos || 0}</p>
                         <p className="text-vintage-cream/60 text-xs">Assistidos</p>
                       </div>
                       <div>
-                        <p className="text-vintage-cream font-semibold">{estatisticas.total_favoritos}</p>
+                        <p className="text-vintage-cream font-semibold">{estatisticas.total_favoritos || 0}</p>
                         <p className="text-vintage-cream/60 text-xs">Favoritos</p>
                       </div>
                       <div>
-                        <p className="text-vintage-cream font-semibold">{estatisticas.total_avaliacoes}</p>
+                        <p className="text-vintage-cream font-semibold">{estatisticas.total_avaliacoes || 0}</p>
                         <p className="text-vintage-cream/60 text-xs">Avaliações</p>
                       </div>
                       <div>
-                        <p className="text-vintage-cream font-semibold">{estatisticas.media_avaliacao.toFixed(1)}</p>
+                        <p className="text-vintage-cream font-semibold">{estatisticas.media_avaliacao ? estatisticas.media_avaliacao.toFixed(1) : '0.0'}</p>
                         <p className="text-vintage-cream/60 text-xs">Média</p>
                       </div>
                     </div>
@@ -345,7 +345,7 @@ export default function FilmeDetalhes() {
                   <div className="grid grid-cols-3 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-vintage-serif font-bold text-vintage-gold mb-1">
-                        {filme.avaliacoes.gosteiMuito}
+                        {filme.avaliacoes?.gosteiMuito || 0}
                       </div>
                       <div className="flex items-center justify-center gap-1 text-vintage-cream/80">
                         <Heart className="h-3 w-3 text-vintage-gold" />
@@ -354,7 +354,7 @@ export default function FilmeDetalhes() {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-vintage-serif font-bold text-vintage-gold mb-1">
-                        {filme.avaliacoes.gostei}
+                        {filme.avaliacoes?.gostei || 0}
                       </div>
                       <div className="flex items-center justify-center gap-1 text-vintage-cream/80">
                         <ThumbsUp className="h-3 w-3 text-vintage-gold" />
@@ -363,7 +363,7 @@ export default function FilmeDetalhes() {
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-vintage-serif font-bold text-vintage-gold mb-1">
-                        {filme.avaliacoes.naoGostei}
+                        {filme.avaliacoes?.naoGostei || 0}
                       </div>
                       <div className="flex items-center justify-center gap-1 text-vintage-cream/80">
                         <ThumbsDown className="h-3 w-3 text-vintage-gold" />
