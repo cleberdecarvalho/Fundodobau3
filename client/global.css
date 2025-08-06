@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Roboto:wght@300;400;500;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Roboto:wght@300;400;500;700;900&family=Playfair+Display:wght@400;500;600;700;800;900&family=Cinzel:wght@400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -81,15 +81,17 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Playfair Display', 'Cinzel', serif;
     font-weight: 400;
-    line-height: 1.5;
+    line-height: 1.6;
+    letter-spacing: 0.02em;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-family: 'Cinzel', 'Playfair Display', serif;
     font-weight: 700;
     line-height: 1.2;
+    letter-spacing: 0.05em;
   }
 
   /* Garantir que todos os elementos usem as fontes Netflix */
@@ -97,35 +99,61 @@
     font-family: inherit;
   }
 
-  /* Títulos principais - estilo Netflix */
+  /* Títulos principais - estilo Vintage Cinema */
   .netflix-title {
-    font-family: 'Roboto', sans-serif;
-    font-weight: 900;
-    letter-spacing: -0.025em;
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
   }
 
-  /* Texto do corpo - estilo Netflix */
+  /* Texto do corpo - estilo Vintage Cinema */
   .netflix-body {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Playfair Display', serif;
     font-weight: 400;
+    letter-spacing: 0.02em;
   }
 
-  /* Botões - estilo Netflix */
+  /* Botões - estilo Vintage Cinema */
   .netflix-button {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Cinzel', serif;
     font-weight: 600;
-    letter-spacing: 0.025em;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
   }
 
   /* Classes de fonte para compatibilidade com o código existente */
   .font-vintage-body {
-    font-family: 'Inter', sans-serif;
+    font-family: 'Playfair Display', serif;
     font-weight: 400;
+    letter-spacing: 0.02em;
   }
 
   .font-vintage-serif {
-    font-family: 'Roboto', sans-serif;
+    font-family: 'Cinzel', serif;
     font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  /* Classes específicas para estilo vintage de cinema */
+  .font-cinema-title {
+    font-family: 'Cinzel', serif;
+    font-weight: 800;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .font-cinema-body {
+    font-family: 'Playfair Display', serif;
+    font-weight: 400;
+    letter-spacing: 0.03em;
+  }
+
+  .font-cinema-accent {
+    font-family: 'Cinzel', serif;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 }
 
@@ -162,9 +190,10 @@
   /* Botão vintage */
   .btn-vintage {
     @apply bg-vintage-gold text-vintage-black px-6 py-3 rounded-lg font-semibold transition-all duration-300 hover:bg-vintage-gold-dark hover:scale-105;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Cinzel', serif;
     font-weight: 600;
-    letter-spacing: 0.025em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
   }
 
