@@ -1,0 +1,27 @@
+[
+  {
+    "titulo": "Filmes para Chorar",
+    "tipo": "categoria",
+    "filtro": "Drama",
+    "filmesIds": [],
+    "id": "1754455406378",
+    "createdAt": "2025-08-06T04:43:26.378Z"
+  },
+  {
+    "titulo": "Ação",
+    "tipo": "categoria",
+    "filtro": "Ação",
+    "filmesIds": [],
+    "id": "1754455446712",
+    "createdAt": "2025-08-06T04:44:06.712Z"
+  },
+  {
+    "titulo": "Biografia",
+    "tipo": "categoria",
+    "filtro": "Biografia",
+    "filmesIds": [],
+    "id": "1754455750876",
+    "createdAt": "2025-08-06T04:49:10.876Z",
+    "updatedAt": "2025-08-06T04:49:30.762Z"
+  }
+]

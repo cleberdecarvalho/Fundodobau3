@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, Mail, Lock, User, Film, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -16,11 +16,22 @@ export default function Auth() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { login, register } = useAuth();
+  const { login, register, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const from = (location.state as any)?.from?.pathname || '/';
+
+  // Redirecionar automaticamente quando o usuário for autenticado
+  useEffect(() => {
+    if (user) {
+      if (user.tipo === 'admin') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
+    }
+  }, [user, navigate, from]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,9 +41,7 @@ export default function Auth() {
     try {
       if (isLogin) {
         const success = await login(formData.email, formData.senha);
-        if (success) {
-          navigate(from, { replace: true });
-        } else {
+        if (!success) {
           setError('Email ou senha incorretos');
         }
       } else {

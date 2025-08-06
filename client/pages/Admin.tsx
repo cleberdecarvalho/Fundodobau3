@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtectedRoute } from '../components/ProtectedRoute';
-import { CATEGORIAS } from '@shared/types';
+import { CATEGORIAS, DECADAS } from '@shared/types';
 import { Filme } from '@shared/types';
 import { ImageUpload } from '../components/ImageUpload';
 import { VideoUpload } from '../components/VideoUpload';
@@ -15,7 +15,7 @@ function AdminDashboard() {
   // Para preview local de imagem
   const [posterPreview, setPosterPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'filmes' | 'novo-filme' | 'carrossel'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'filmes' | 'novo-filme' | 'carrossel' | 'sliders'>('dashboard');
   const [filmes, setFilmes] = useState<Filme[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [filmeEditando, setFilmeEditando] = useState<Filme | null>(null);
@@ -26,6 +26,17 @@ function AdminDashboard() {
     { posicao: 1, filmeId: null, imagemUrl: null, ativo: false },
     { posicao: 2, filmeId: null, imagemUrl: null, ativo: false }
   ]);
+
+  // Estados para Sliders
+  const [sliders, setSliders] = useState<any[]>([]);
+  const [showSliderModal, setShowSliderModal] = useState(false);
+  const [sliderEditando, setSliderEditando] = useState<any>(null);
+  const [novoSlider, setNovoSlider] = useState({
+    titulo: '',
+    tipo: 'categoria', // 'categoria', 'decada', 'personalizado'
+    filtro: '', // categoria específica ou década
+    filmesIds: [] // para sliders personalizados
+  });
 
   const [novoFilme, setNovoFilme] = useState({
     nomeOriginal: '',
@@ -96,6 +107,22 @@ function AdminDashboard() {
       }
     }
     fetchCarrossel();
+  }, []);
+
+  // Carregar sliders
+  useEffect(() => {
+    async function fetchSliders() {
+      try {
+        const response = await fetch('/api/sliders');
+        if (response.ok) {
+          const data = await response.json();
+          setSliders(data.sliders);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar sliders:', error);
+      }
+    }
+    fetchSliders();
   }, []);
 
   // Salva a key na sessionStorage sempre que mudar
@@ -188,8 +215,6 @@ function AdminDashboard() {
       setFilmes(filmesAtualizados);
     } catch (error) {
       console.error('Erro ao salvar filme:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      alert(`Erro ao salvar filme: ${errorMessage}. Tente novamente.`);
     }
     setIsLoading(false);
     setActiveTab('filmes');
@@ -252,7 +277,6 @@ function AdminDashboard() {
       console.log('Filme deletado com sucesso da base local');
     } catch (error) {
       console.error('Erro ao deletar filme:', error);
-      alert(`Erro ao deletar filme: ${error instanceof Error ? error.message : 'Erro desconhecido'}. Tente novamente.`);
     }
   };
 
@@ -307,14 +331,95 @@ function AdminDashboard() {
       });
       
       if (response.ok) {
-        alert('Carrossel salvo com sucesso!');
+        // Carrossel salvo com sucesso
       } else {
-        alert('Erro ao salvar carrossel');
+        console.error('Erro ao salvar carrossel');
       }
     } catch (error) {
       console.error('Erro ao salvar carrossel:', error);
-      alert('Erro ao salvar carrossel');
     }
+  };
+
+  // Funções para gerenciar sliders
+  const handleCriarSlider = async () => {
+    try {
+      const response = await fetch('/api/sliders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ slider: novoSlider }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSliders([...sliders, data.slider]);
+        setNovoSlider({
+          titulo: '',
+          tipo: 'categoria',
+          filtro: '',
+          filmesIds: []
+        });
+        setShowSliderModal(false);
+      } else {
+        console.error('Erro ao criar slider');
+      }
+    } catch (error) {
+      console.error('Erro ao criar slider:', error);
+    }
+  };
+
+  const handleEditarSlider = async () => {
+    if (!sliderEditando) return;
+    
+    try {
+      const response = await fetch(`/api/sliders/${sliderEditando.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ slider: sliderEditando }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setSliders(sliders.map(s => s.id === sliderEditando.id ? data.slider : s));
+        setSliderEditando(null);
+        setShowSliderModal(false);
+      } else {
+        console.error('Erro ao atualizar slider');
+      }
+    } catch (error) {
+      console.error('Erro ao atualizar slider:', error);
+    }
+  };
+
+  const handleExcluirSlider = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir este slider?')) return;
+    
+    try {
+      const response = await fetch(`/api/sliders/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        setSliders(sliders.filter(s => s.id !== id));
+      } else {
+        console.error('Erro ao excluir slider');
+      }
+    } catch (error) {
+      console.error('Erro ao excluir slider:', error);
+    }
+  };
+
+  const limparFormularioSlider = () => {
+    setNovoSlider({
+      titulo: '',
+      tipo: 'categoria',
+      filtro: '',
+      filmesIds: []
+    });
+    setSliderEditando(null);
   };
 
 
@@ -380,6 +485,12 @@ function AdminDashboard() {
               onClick={() => setActiveTab('carrossel')}
             >
               Carrossel Superior
+            </button>
+            <button
+              className={`px-4 py-2 rounded font-vintage-body font-semibold ${activeTab === 'sliders' ? 'bg-vintage-gold text-vintage-black' : 'bg-vintage-black/40 text-vintage-gold border border-vintage-gold/30'}`}
+              onClick={() => setActiveTab('sliders')}
+            >
+              Sliders
             </button>
           </div>
 
@@ -853,7 +964,6 @@ function AdminDashboard() {
                             setFilmeEditando(null);
                           } catch (error) {
                             console.error('Erro ao atualizar filme:', error);
-                            alert('Erro ao atualizar filme. Tente novamente.');
                           } finally {
                             setIsLoading(false);
                           }
@@ -1037,6 +1147,262 @@ function AdminDashboard() {
                     </div>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Sliders Tab */}
+          {activeTab === 'sliders' && (
+            <div className="space-y-6">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xl font-semibold text-vintage-gold">
+                  Gerenciar Sliders
+                </h3>
+                <Button
+                  onClick={() => {
+                    limparFormularioSlider();
+                    setShowSliderModal(true);
+                  }}
+                  className="btn-vintage"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Novo Slider
+                </Button>
+              </div>
+              
+              {/* Lista de Sliders */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {sliders.map((slider) => (
+                  <div key={slider.id} className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-6">
+                    <div className="flex justify-between items-start mb-4">
+                      <h4 className="text-lg font-semibold text-vintage-gold">
+                        {slider.titulo}
+                      </h4>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => {
+                            setSliderEditando(slider);
+                            setShowSliderModal(true);
+                          }}
+                          className="text-vintage-gold hover:text-vintage-cream transition-colors"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleExcluirSlider(slider.id)}
+                          className="text-red-400 hover:text-red-300 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2 text-sm text-vintage-cream/80">
+                      <p><strong>Tipo:</strong> {slider.tipo === 'categoria' ? 'Por Categoria' : slider.tipo === 'decada' ? 'Por Década' : 'Personalizado'}</p>
+                      {slider.filtro && <p><strong>Filtro:</strong> {slider.filtro}</p>}
+                      {slider.tipo === 'personalizado' && (
+                        <p><strong>Filmes:</strong> {slider.filmesIds?.length || 0} selecionados</p>
+                      )}
+                      <p><strong>Criado:</strong> {new Date(slider.createdAt).toLocaleDateString('pt-BR')}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {sliders.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-vintage-cream/60">Nenhum slider criado ainda.</p>
+                  <p className="text-vintage-cream/40 text-sm">Clique em "Novo Slider" para começar.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Modal de Criar/Editar Slider */}
+          {showSliderModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-vintage-black border border-vintage-gold/30 rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-semibold text-vintage-gold">
+                    {sliderEditando ? 'Editar Slider' : 'Novo Slider'}
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setShowSliderModal(false);
+                      limparFormularioSlider();
+                    }}
+                    className="text-vintage-cream/60 hover:text-vintage-cream"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+
+                <div className="space-y-6">
+                  {/* Título */}
+                  <div>
+                    <label className="text-vintage-gold font-semibold block mb-2">Título do Slider</label>
+                    <input
+                      type="text"
+                      value={sliderEditando ? sliderEditando.titulo : novoSlider.titulo}
+                      onChange={(e) => {
+                        if (sliderEditando) {
+                          setSliderEditando({ ...sliderEditando, titulo: e.target.value });
+                        } else {
+                          setNovoSlider({ ...novoSlider, titulo: e.target.value });
+                        }
+                      }}
+                      placeholder="Ex: Filmes de Amor, Clássicos dos Anos 50..."
+                      className="mt-2 w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream focus:border-vintage-gold focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Tipo de Slider */}
+                  <div>
+                    <label className="text-vintage-gold font-semibold block mb-2">Tipo de Slider</label>
+                    <select
+                      value={sliderEditando ? sliderEditando.tipo : novoSlider.tipo}
+                      onChange={(e) => {
+                        if (sliderEditando) {
+                          setSliderEditando({ 
+                            ...sliderEditando, 
+                            tipo: e.target.value,
+                            filtro: '',
+                            filmesIds: []
+                          });
+                        } else {
+                          setNovoSlider({ 
+                            ...novoSlider, 
+                            tipo: e.target.value,
+                            filtro: '',
+                            filmesIds: []
+                          });
+                        }
+                      }}
+                      className="mt-2 w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream focus:border-vintage-gold focus:outline-none"
+                    >
+                      <option value="categoria">Por Categoria</option>
+                      <option value="decada">Por Década</option>
+                      <option value="personalizado">Personalizado</option>
+                    </select>
+                  </div>
+
+                  {/* Filtro para Categoria ou Década */}
+                  {(sliderEditando ? sliderEditando.tipo : novoSlider.tipo) !== 'personalizado' && (
+                    <div>
+                      <label className="text-vintage-gold font-semibold block mb-2">
+                        {(sliderEditando ? sliderEditando.tipo : novoSlider.tipo) === 'categoria' ? 'Categoria' : 'Década'}
+                      </label>
+                      {(sliderEditando ? sliderEditando.tipo : novoSlider.tipo) === 'categoria' ? (
+                        <select
+                          value={sliderEditando ? sliderEditando.filtro : novoSlider.filtro}
+                          onChange={(e) => {
+                            if (sliderEditando) {
+                              setSliderEditando({ ...sliderEditando, filtro: e.target.value });
+                            } else {
+                              setNovoSlider({ ...novoSlider, filtro: e.target.value });
+                            }
+                          }}
+                          className="mt-2 w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream focus:border-vintage-gold focus:outline-none"
+                        >
+                          <option value="">Selecione uma categoria</option>
+                          {CATEGORIAS.map((categoria) => (
+                            <option key={categoria.id} value={categoria.nome}>
+                              {categoria.nome}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <select
+                          value={sliderEditando ? sliderEditando.filtro : novoSlider.filtro}
+                          onChange={(e) => {
+                            if (sliderEditando) {
+                              setSliderEditando({ ...sliderEditando, filtro: e.target.value });
+                            } else {
+                              setNovoSlider({ ...novoSlider, filtro: e.target.value });
+                            }
+                          }}
+                          className="mt-2 w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream focus:border-vintage-gold focus:outline-none"
+                        >
+                          <option value="">Selecione uma década</option>
+                          {DECADAS.map((decada) => (
+                            <option key={decada.decada} value={decada.decada}>
+                              {decada.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Seleção de Filmes para Slider Personalizado */}
+                  {(sliderEditando ? sliderEditando.tipo : novoSlider.tipo) === 'personalizado' && (
+                    <div>
+                      <label className="text-vintage-gold font-semibold block mb-2">Selecionar Filmes</label>
+                      <div className="mt-2 max-h-60 overflow-y-auto border border-vintage-gold/20 rounded-lg p-3">
+                        {filmes.map((filme) => {
+                          const isSelected = (sliderEditando ? sliderEditando.filmesIds : novoSlider.filmesIds).includes(filme.GUID);
+                          return (
+                            <div
+                              key={filme.GUID}
+                              className={`flex items-center space-x-3 p-2 rounded cursor-pointer transition-colors ${
+                                isSelected ? 'bg-vintage-gold/20' : 'hover:bg-vintage-black/30'
+                              }`}
+                              onClick={() => {
+                                const currentIds = sliderEditando ? sliderEditando.filmesIds : novoSlider.filmesIds;
+                                const newIds = isSelected 
+                                  ? currentIds.filter((id: string) => id !== filme.GUID)
+                                  : [...currentIds, filme.GUID];
+                                
+                                if (sliderEditando) {
+                                  setSliderEditando({ ...sliderEditando, filmesIds: newIds });
+                                } else {
+                                  setNovoSlider({ ...novoSlider, filmesIds: newIds });
+                                }
+                              }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => {}}
+                                className="rounded border-vintage-gold/30 text-vintage-gold focus:ring-vintage-gold focus:ring-offset-0"
+                              />
+                              <div className="flex-1">
+                                <p className="text-vintage-cream font-semibold">{filme.nomePortugues}</p>
+                                <p className="text-vintage-cream/60 text-sm">{filme.ano}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Botões */}
+                  <div className="flex space-x-3 pt-4">
+                    <Button
+                      onClick={sliderEditando ? handleEditarSlider : handleCriarSlider}
+                      disabled={!((sliderEditando ? sliderEditando.titulo : novoSlider.titulo) && 
+                        ((sliderEditando ? sliderEditando.tipo : novoSlider.tipo) === 'personalizado' ? 
+                          (sliderEditando ? sliderEditando.filmesIds : novoSlider.filmesIds).length > 0 : 
+                          (sliderEditando ? sliderEditando.filtro : novoSlider.filtro)))}
+                      className="btn-vintage flex-1"
+                    >
+                      <Save className="h-4 w-4 mr-2" />
+                      {sliderEditando ? 'Atualizar Slider' : 'Criar Slider'}
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setShowSliderModal(false);
+                        limparFormularioSlider();
+                      }}
+                      variant="outline"
+                      className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
               </div>
             </div>
           )}

@@ -226,5 +226,140 @@ export function createServer() {
     }
   });
 
+  // GET /api/sliders - Obter todos os sliders
+  app.get("/api/sliders", (req, res) => {
+    try {
+      const slidersPath = path.join(process.cwd(), 'data', 'sliders.json');
+      
+      if (fs.existsSync(slidersPath)) {
+        const slidersData = fs.readFileSync(slidersPath, 'utf8');
+        const sliders = JSON.parse(slidersData);
+        res.json({ success: true, sliders });
+      } else {
+        res.json({ success: true, sliders: [] });
+      }
+    } catch (error) {
+      console.error('❌ Erro ao obter sliders:', error);
+      res.status(500).json({ success: false, error: 'Erro ao obter sliders' });
+    }
+  });
+
+  // POST /api/sliders - Criar novo slider
+  app.post("/api/sliders", (req, res) => {
+    try {
+      const { slider } = req.body;
+      
+      if (!slider || !slider.titulo) {
+        return res.status(400).json({ success: false, error: 'Dados do slider são obrigatórios' });
+      }
+
+      const dataPath = path.join(process.cwd(), 'data');
+      const slidersPath = path.join(dataPath, 'sliders.json');
+      
+      // Criar diretório se não existir
+      if (!fs.existsSync(dataPath)) {
+        fs.mkdirSync(dataPath, { recursive: true });
+      }
+      
+      // Ler sliders existentes
+      let sliders = [];
+      if (fs.existsSync(slidersPath)) {
+        const slidersData = fs.readFileSync(slidersPath, 'utf8');
+        sliders = JSON.parse(slidersData);
+      }
+      
+      // Gerar ID único
+      const novoSlider = {
+        ...slider,
+        id: Date.now().toString(),
+        createdAt: new Date().toISOString()
+      };
+      
+      sliders.push(novoSlider);
+      
+      // Salvar
+      fs.writeFileSync(slidersPath, JSON.stringify(sliders, null, 2));
+      
+      console.log('✅ Slider criado:', novoSlider.titulo);
+      
+      res.json({ success: true, slider: novoSlider });
+    } catch (error) {
+      console.error('❌ Erro ao criar slider:', error);
+      res.status(500).json({ success: false, error: 'Erro ao criar slider' });
+    }
+  });
+
+  // PUT /api/sliders/:id - Atualizar slider
+  app.put("/api/sliders/:id", (req, res) => {
+    try {
+      const { id } = req.params;
+      const { slider } = req.body;
+      
+      if (!slider || !slider.titulo) {
+        return res.status(400).json({ success: false, error: 'Dados do slider são obrigatórios' });
+      }
+
+      const slidersPath = path.join(process.cwd(), 'data', 'sliders.json');
+      
+      if (!fs.existsSync(slidersPath)) {
+        return res.status(404).json({ success: false, error: 'Slider não encontrado' });
+      }
+      
+      const slidersData = fs.readFileSync(slidersPath, 'utf8');
+      let sliders = JSON.parse(slidersData);
+      
+      const index = sliders.findIndex((s: any) => s.id === id);
+      if (index === -1) {
+        return res.status(404).json({ success: false, error: 'Slider não encontrado' });
+      }
+      
+      sliders[index] = {
+        ...sliders[index],
+        ...slider,
+        updatedAt: new Date().toISOString()
+      };
+      
+      fs.writeFileSync(slidersPath, JSON.stringify(sliders, null, 2));
+      
+      console.log('✅ Slider atualizado:', slider.titulo);
+      
+      res.json({ success: true, slider: sliders[index] });
+    } catch (error) {
+      console.error('❌ Erro ao atualizar slider:', error);
+      res.status(500).json({ success: false, error: 'Erro ao atualizar slider' });
+    }
+  });
+
+  // DELETE /api/sliders/:id - Excluir slider
+  app.delete("/api/sliders/:id", (req, res) => {
+    try {
+      const { id } = req.params;
+      const slidersPath = path.join(process.cwd(), 'data', 'sliders.json');
+      
+      if (!fs.existsSync(slidersPath)) {
+        return res.status(404).json({ success: false, error: 'Slider não encontrado' });
+      }
+      
+      const slidersData = fs.readFileSync(slidersPath, 'utf8');
+      let sliders = JSON.parse(slidersData);
+      
+      const index = sliders.findIndex((s: any) => s.id === id);
+      if (index === -1) {
+        return res.status(404).json({ success: false, error: 'Slider não encontrado' });
+      }
+      
+      const sliderRemovido = sliders.splice(index, 1)[0];
+      
+      fs.writeFileSync(slidersPath, JSON.stringify(sliders, null, 2));
+      
+      console.log('✅ Slider removido:', sliderRemovido.titulo);
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error('❌ Erro ao excluir slider:', error);
+      res.status(500).json({ success: false, error: 'Erro ao excluir slider' });
+    }
+  });
+
   return app;
 }

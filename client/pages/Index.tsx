@@ -8,6 +8,7 @@ import { Filme } from '@shared/types';
 export default function Index() {
   const [filmes, setFilmes] = useState<Filme[]>([]);
   const [filmesPorCategoria, setFilmesPorCategoria] = useState<Record<string, Filme[]>>({});
+  const [sliders, setSliders] = useState<any[]>([]);
 
   useEffect(() => {
     const carregarFilmes = async () => {
@@ -39,7 +40,38 @@ export default function Index() {
     carregarFilmes();
   }, []);
 
+  // Carregar sliders configurados
+  useEffect(() => {
+    const carregarSliders = async () => {
+      try {
+        const response = await fetch('/api/sliders');
+        if (response.ok) {
+          const data = await response.json();
+          setSliders(data.sliders);
+        }
+      } catch (error) {
+        console.error('Erro ao carregar sliders:', error);
+      }
+    };
+    carregarSliders();
+  }, []);
+
   const filmesDestaque = filmes.slice(0, 3);
+
+  // Função para filtrar filmes baseado no tipo de slider
+  const getFilmesDoSlider = (slider: any) => {
+    switch (slider.tipo) {
+      case 'categoria':
+        return filmes.filter(f => f.categoria.includes(slider.filtro));
+      case 'decada':
+        const decada = slider.filtro;
+        return filmes.filter(f => f.ano && f.ano.toString().startsWith(decada.slice(0, 3)));
+      case 'personalizado':
+        return filmes.filter(f => slider.filmesIds.includes(f.GUID));
+      default:
+        return [];
+    }
+  };
 
   return (
     <div className="min-h-screen">
@@ -60,49 +92,20 @@ export default function Index() {
         </div>
       </section>
 
-      {/* Sliders de Filmes por Categoria */}
+      {/* Sliders Configurados */}
       <div className="space-y-8 py-6">
-        {filmesPorCategoria.Drama && filmesPorCategoria.Drama.length > 0 && (
-          <FilmSlider
-            titulo="Filmes de Drama"
-            filmes={filmesPorCategoria.Drama}
-          />
-        )}
-
-        {filmesPorCategoria.Romance && filmesPorCategoria.Romance.length > 0 && (
-          <FilmSlider
-            titulo="Filmes de Romance"
-            filmes={filmesPorCategoria.Romance}
-          />
-        )}
-
-        {filmesPorCategoria.Crime && filmesPorCategoria.Crime.length > 0 && (
-          <FilmSlider
-            titulo="Filmes de Crime"
-            filmes={filmesPorCategoria.Crime}
-          />
-        )}
-
-        {filmesPorCategoria.Suspense && filmesPorCategoria.Suspense.length > 0 && (
-          <FilmSlider
-            titulo="Filmes de Suspense"
-            filmes={filmesPorCategoria.Suspense}
-          />
-        )}
-
-        {filmesPorCategoria.Comédia && filmesPorCategoria.Comédia.length > 0 && (
-          <FilmSlider
-            titulo="Comédias Clássicas"
-            filmes={filmesPorCategoria.Comédia}
-          />
-        )}
-
-        {filmesPorCategoria.Musical && filmesPorCategoria.Musical.length > 0 && (
-          <FilmSlider
-            titulo="Musicais"
-            filmes={filmesPorCategoria.Musical}
-          />
-        )}
+        {sliders.map((slider) => {
+          const filmesDoSlider = getFilmesDoSlider(slider);
+          if (filmesDoSlider.length === 0) return null;
+          
+          return (
+            <FilmSlider
+              key={slider.id}
+              titulo={slider.titulo}
+              filmes={filmesDoSlider}
+            />
+          );
+        })}
       </div>
 
       {/* Call to Action */}
