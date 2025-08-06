@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { HeroCarousel } from '../components/HeroCarousel';
 import { FilmSlider } from '../components/FilmSlider';
-import { FILMES_DESTAQUE } from '@shared/mockData';
+// Removido import de dados mockados
 import { filmeStorage } from '../utils/filmeStorage';
 import { Filme } from '@shared/types';
 
@@ -28,16 +28,11 @@ export default function Index() {
         setFilmesPorCategoria(categorias);
       } catch (error) {
         console.error('Erro ao carregar filmes:', error);
-        // Usar dados mock em caso de erro
-        setFilmes(FILMES_DESTAQUE);
-        setFilmesPorCategoria({
-          'Drama': FILMES_DESTAQUE.filter(f => f.categoria.includes('Drama')),
-          'Romance': FILMES_DESTAQUE.filter(f => f.categoria.includes('Romance')),
-          'Crime': FILMES_DESTAQUE.filter(f => f.categoria.includes('Crime')),
-          'Suspense': FILMES_DESTAQUE.filter(f => f.categoria.includes('Suspense')),
-          'Comédia': FILMES_DESTAQUE.filter(f => f.categoria.includes('Comédia')),
-          'Musical': FILMES_DESTAQUE.filter(f => f.categoria.includes('Musical')),
-        });
+        // Não usar dados mock - mostrar erro real
+        setFilmes([]);
+        setFilmesPorCategoria({});
+        console.error('❌ ERRO: Não foi possível carregar filmes do MySQL da Hostgator');
+        console.error('❌ Detalhes do erro:', error);
       }
     };
 
@@ -49,7 +44,7 @@ export default function Index() {
   return (
     <div className="min-h-screen">
       {/* Hero Carousel */}
-      <HeroCarousel filmes={filmesDestaque.length > 0 ? filmesDestaque : FILMES_DESTAQUE} />
+      <HeroCarousel filmes={filmesDestaque} />
 
       {/* Introdução da plataforma */}
       <section className="py-16 bg-gradient-to-b from-vintage-black to-vintage-sepia/20">

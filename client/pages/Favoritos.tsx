@@ -4,7 +4,7 @@ import { Heart, Check, Eye, Star, Calendar, Clock, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { useFavorites } from '../hooks/useFavorites';
-import { FILMES_MOCK } from '@shared/mockData';
+// Removido import de dados mockados
 import { useAuth } from '../contexts/AuthContext';
 
 function FavoritosPage() {
@@ -17,18 +17,10 @@ function FavoritosPage() {
     setAvaliacao 
   } = useFavorites();
 
-  // Filtrar filmes baseado nas preferências
-  const filmesAssistidos = FILMES_MOCK.filter(filme => 
-    preferences.filmesAssistidos.includes(filme.GUID)
-  );
-
-  const filmesParaAssistir = FILMES_MOCK.filter(filme => 
-    preferences.filmesParaAssistir.includes(filme.GUID)
-  );
-
-  const filmesAvaliados = FILMES_MOCK.filter(filme => 
-    preferences.avaliacoes[filme.GUID]
-  );
+  // Filtrar filmes baseado nas preferências (sem dados mockados)
+  const filmesAssistidos: any[] = [];
+  const filmesParaAssistir: any[] = [];
+  const filmesAvaliados: any[] = [];
 
   const getAvaliacaoTexto = (avaliacao: string) => {
     switch (avaliacao) {

@@ -22,40 +22,112 @@ const MYSQL_CONFIG = {
   }
 };
 
+// Função para salvar imagem base64 como arquivo
+async function salvarImagemComoArquivo(base64Data: string, nomeFilme: string): Promise<string> {
+  try {
+    console.log('🖼️ Salvando imagem para:', nomeFilme);
+    
+    // Salvar imagem via API do servidor
+    const response = await fetch('/api/salvar-imagem', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        imagemBase64: base64Data,
+        nomeFilme: nomeFilme
+      }),
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      console.log('✅ Imagem salva no servidor:', result.caminho);
+      return result.caminho;
+    } else {
+      console.error('❌ Erro ao salvar imagem no servidor:', response.status);
+      return '/images/filmes/default.jpg';
+    }
+  } catch (error) {
+    console.error('❌ Erro ao salvar imagem:', error);
+    return '/images/filmes/default.jpg'; // Fallback para imagem padrão
+  }
+}
+
 // Função para obter filmes da API
 export async function getFilmes(): Promise<Filme[]> {
+  console.log('🔍 getFilmes() chamado');
+  console.log('🔍 Ambiente:', import.meta.env.DEV ? 'DESENVOLVIMENTO' : 'PRODUÇÃO');
+  console.log('🔍 URL da API:', MYSQL_CONFIG.baseURL);
+  
   // Durante desenvolvimento, usar MySQL da Hostgator
   if (import.meta.env.DEV) {
     try {
       console.log('🔄 Conectando com MySQL da Hostgator...');
-      const response = await fetch(MYSQL_CONFIG.baseURL + '?action=list', {
+      const response = await fetch(MYSQL_CONFIG.baseURL + '?action=list&t=' + Date.now(), {
         method: 'GET',
         headers: MYSQL_CONFIG.headers,
       });
       
+      console.log('🔍 Status da resposta:', response.status);
+      
       if (response.ok) {
         const result = await response.json();
         console.log('✅ Filmes carregados do MySQL:', result);
+        console.log('🔍 Número de filmes:', result.filmes ? result.filmes.length : 0);
+        
+        // Processar imagens base64 para salvar como arquivos
+        if (result.filmes) {
+          console.log('🖼️ Processando imagens...');
+          for (const filme of result.filmes) {
+            console.log('🖼️ Filme:', filme.nomePortugues, 'Imagem:', filme.imagemUrl ? filme.imagemUrl.substring(0, 50) + '...' : 'Nenhuma');
+            
+            if (filme.imagemUrl && filme.imagemUrl.startsWith('data:')) {
+              try {
+                const caminhoImagem = await salvarImagemComoArquivo(filme.imagemUrl, filme.nomePortugues);
+                filme.imagemUrl = caminhoImagem;
+                console.log('✅ Imagem processada para:', filme.nomePortugues, 'Caminho:', caminhoImagem);
+              } catch (error) {
+                console.error('❌ Erro ao processar imagem para', filme.nomePortugues, ':', error);
+                filme.imagemUrl = '/images/filmes/default.jpg'; // Fallback
+              }
+            } else if (filme.imagemUrl && !filme.imagemUrl.startsWith('http') && !filme.imagemUrl.startsWith('/')) {
+              // Se não tem caminho completo, adicionar prefixo
+              filme.imagemUrl = `/images/filmes/${filme.imagemUrl}`;
+              console.log('✅ Caminho da imagem ajustado para:', filme.nomePortugues, 'Caminho:', filme.imagemUrl);
+            } else {
+              console.log('ℹ️ Imagem já tem caminho válido para:', filme.nomePortugues);
+            }
+          }
+        }
+        
         return result.filmes || [];
       } else {
         console.error('❌ MySQL retornou status:', response.status);
-        throw new Error(`API retornou status ${response.status}`);
+        const errorText = await response.text();
+        console.error('❌ Texto do erro:', errorText);
+        throw new Error(`API retornou status ${response.status}: ${errorText}`);
       }
     } catch (error) {
       console.error('❌ Erro fatal ao conectar com MySQL:', error);
+      console.error('❌ Tipo do erro:', error.constructor.name);
+      console.error('❌ Stack trace:', error.stack);
       throw new Error('Não foi possível conectar com o banco de dados MySQL. Verifique a configuração.');
     }
   }
   
   // Em produção, usar a mesma API
   try {
-    const response = await fetch(MYSQL_CONFIG.baseURL + '?action=list', {
+    console.log('🔄 Conectando com MySQL em produção...');
+    const response = await fetch(MYSQL_CONFIG.baseURL + '?action=list&t=' + Date.now(), {
       method: 'GET',
-      headers: MYSQL_CONFIG.headers,
+      headers: {
+        'Content-Type': 'application/json',
+      }
     });
     
     if (response.ok) {
       const result = await response.json();
+      console.log('✅ Filmes carregados em produção:', result);
       return result.filmes || [];
     } else {
       throw new Error(`API retornou status ${response.status}`);
@@ -90,6 +162,19 @@ export function saveFilmes(filmes: Filme[]) {
 
 // Função para adicionar filme via API
 export async function addFilme(filme: Filme) {
+  // Processar imagem se for base64
+  if (filme.imagemUrl && filme.imagemUrl.startsWith('data:')) {
+    try {
+      console.log('🖼️ Processando imagem do novo filme...');
+      const caminhoImagem = await salvarImagemComoArquivo(filme.imagemUrl, filme.nomePortugues);
+      filme.imagemUrl = caminhoImagem;
+      console.log('✅ Imagem processada para novo filme:', caminhoImagem);
+    } catch (error) {
+      console.error('❌ Erro ao processar imagem do novo filme:', error);
+      filme.imagemUrl = '/images/filmes/default.jpg'; // Fallback
+    }
+  }
+  
   // Durante desenvolvimento, usar MySQL da Hostgator
   if (import.meta.env.DEV) {
     try {

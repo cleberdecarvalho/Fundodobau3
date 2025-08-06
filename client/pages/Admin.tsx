@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { CATEGORIAS } from '@shared/types';
@@ -20,6 +20,7 @@ function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [filmeEditando, setFilmeEditando] = useState<Filme | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   const [novoFilme, setNovoFilme] = useState({
     nomeOriginal: '',
@@ -37,37 +38,7 @@ function AdminDashboard() {
   const [uploadMsg, setUploadMsg] = useState<string>('');
   const pollingRef = useRef<NodeJS.Timeout|null>(null);
   
-  // Função simples para verificar status do vídeo no Bunny.net
-  const verificarStatusVideo = async (videoGUID: string): Promise<string> => {
-    try {
-      const response = await fetch(`https://video.bunnycdn.com/library/256964/videos/${videoGUID}`, {
-        headers: { 'AccessKey': bunnyApiKey }
-      });
-      
-      if (!response.ok) {
-        return 'Erro';
-      }
-      
-      const data = await response.json();
-      
-      if (data.encoded) {
-        return 'Vídeo Pronto';
-      } else if (data.status === 'uploading') {
-        return 'Enviando';
-      } else if (data.status === 'processing') {
-        return 'Processando';
-      } else if (data.status === 'transcoding') {
-        return 'Transcodificando';
-      } else if (data.status === 'error') {
-        return 'Erro';
-      } else {
-        return 'Processando';
-      }
-    } catch (error) {
-      console.error('Erro ao verificar status do vídeo:', error);
-      return 'Erro';
-    }
-  };
+
 
   // Função para limpar formulário
   const limparFormulario = () => {
@@ -96,23 +67,6 @@ function AdminDashboard() {
         const filmesApi = await filmeStorage.obterFilmes();
         console.log('Filmes carregados:', filmesApi);
         setFilmes(filmesApi);
-        
-        // Atualizar status dos vídeos que não estão prontos
-        if (bunnyApiKey) {
-          for (const filme of filmesApi) {
-            if (filme.videoGUID && filme.videoStatus !== 'Vídeo Pronto' && filme.videoStatus !== 'Erro') {
-              try {
-                const novoStatus = await verificarStatusVideo(filme.videoGUID);
-                if (novoStatus !== filme.videoStatus) {
-                  filme.videoStatus = novoStatus;
-                  await filmeStorage.updateFilme(filme.GUID, filme);
-                }
-              } catch (error) {
-                console.error(`Erro ao verificar status do filme ${filme.videoGUID}:`, error);
-              }
-            }
-          }
-        }
       } catch (error) {
         console.error('Erro ao buscar filmes:', error);
         setFilmes([]);
@@ -121,7 +75,7 @@ function AdminDashboard() {
       }
     }
     fetchFilmes();
-  }, [bunnyApiKey]);
+  }, []);
 
   // Salva a key na sessionStorage sempre que mudar
   useEffect(() => {
@@ -186,44 +140,31 @@ function AdminDashboard() {
   const handleSalvarFilme = async () => {
     setIsLoading(true);
     try {
-      if (filmeEditando) {
-        // Atualiza filme existente
-        console.log('🔄 Editando filme:', filmeEditando);
-        
-        // Usar apenas os dados do filmeEditando (que são os dados do formulário)
-        const atualizado = { 
-          ...filmeEditando,
-          videoStatus: (filmeEditando.videoGUID && filmeEditando.embedLink) ? 'Processado' : 'Processando' 
-        };
-        console.log('🔄 Dados atualizados:', atualizado);
-        await filmeStorage.updateFilme(atualizado.GUID, atualizado);
-      } else {
-        // Garante embedLink se houver videoGUID
-        let embedLink = novoFilme.embedLink;
-        if (novoFilme.videoGUID && !embedLink) {
-          embedLink = `<iframe src=\"https://iframe.mediadelivery.net/embed/256964/${novoFilme.videoGUID}?autoplay=false&loop=false&muted=false&preload=true&responsive=true\" allowfullscreen=\"true\"></iframe>`;
-        }
-        // O GUID deve vir do Bunny.net (videoGUID), se não existir, gerar um local
-        const guidFinal = novoFilme.videoGUID || novoFilme.GUID || `filme-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        console.log('GUID final:', guidFinal, 'VideoGUID do Bunny.net:', novoFilme.videoGUID);
-        
-        const novo = {
-          ...novoFilme,
-          GUID: guidFinal,
-          videoGUID: novoFilme.videoGUID || guidFinal, // Manter videoGUID se existir
-          embedLink: embedLink || novoFilme.embedLink,
-          videoStatus: 'Enviando', // Sempre começa como "Enviando" para novos vídeos
-          assistencias: 0,
-        };
-        const guidSalvo = await filmeStorage.addFilme(novo);
-        console.log('Filme salvo com GUID:', guidSalvo);
-        console.log('Dados completos do filme salvo:', novo);
-        limparFormulario();
+      // Garante embedLink se houver videoGUID
+      let embedLink = novoFilme.embedLink;
+      if (novoFilme.videoGUID && !embedLink) {
+        embedLink = `<iframe src=\"https://iframe.mediadelivery.net/embed/256964/${novoFilme.videoGUID}?autoplay=false&loop=false&muted=false&preload=true&responsive=true\" allowfullscreen=\"true\"></iframe>`;
       }
+      // O GUID deve vir do Bunny.net (videoGUID), se não existir, gerar um local
+      const guidFinal = novoFilme.videoGUID || novoFilme.GUID || `filme-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      console.log('GUID final:', guidFinal, 'VideoGUID do Bunny.net:', novoFilme.videoGUID);
+      
+      const novo = {
+        ...novoFilme,
+        GUID: guidFinal,
+        videoGUID: novoFilme.videoGUID || guidFinal, // Manter videoGUID se existir
+        embedLink: embedLink || novoFilme.embedLink,
+        videoStatus: 'Enviando', // Sempre começa como "Enviando" para novos vídeos
+        assistencias: 0,
+      };
+      const guidSalvo = await filmeStorage.addFilme(novo);
+      console.log('Filme salvo com GUID:', guidSalvo);
+      console.log('Dados completos do filme salvo:', novo);
+      limparFormulario();
+      
       // Atualiza lista
       const filmesAtualizados = await filmeStorage.obterFilmes();
       setFilmes(filmesAtualizados);
-      setFilmeEditando(null);
     } catch (error) {
       console.error('Erro ao salvar filme:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
@@ -302,13 +243,7 @@ function AdminDashboard() {
     novasAvaliacoes: 12,
   };
 
-  // Limpa a key ao sair do painel admin
-  const handleLogout = () => {
-    setBunnyApiKey('');
-    sessionStorage.removeItem('bunnyApiKey');
-    // Aqui você pode adicionar lógica de logout real, se houver
-    window.location.reload();
-  };
+
 
   return (
     <ProtectedRoute requireAdmin={true}>
@@ -334,60 +269,7 @@ function AdminDashboard() {
                 {showApiKey ? 'Ocultar' : 'Mostrar'}
               </button>
             </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const filmes = localStorage.getItem('filmes');
-                  const count = filmes ? JSON.parse(filmes).length : 0;
-                  console.log('Conteúdo completo do localStorage:', filmes);
-                  alert(`Filmes salvos no localStorage: ${count}\nVer console para detalhes`);
-                }}
-                className="text-xs text-blue-400 underline mr-2"
-              >
-                Ver Cache
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  const filmes = await filmeStorage.obterFilmes();
-                  setFilmes(filmes);
-                  console.log('Filmes recarregados:', filmes);
-                  alert(`Filmes recarregados: ${filmes.length}`);
-                }}
-                className="text-xs text-green-400 underline mr-2"
-              >
-                Recarregar
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsLoading(false);
-                  alert('Estado de loading resetado!');
-                }}
-                className="text-xs text-orange-400 underline mr-2"
-              >
-                Reset Loading
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  localStorage.clear();
-                  alert('Cache limpo com sucesso! Agora o sistema usará SQLite.');
-                  window.location.reload();
-                }}
-                className="text-xs text-yellow-400 underline"
-              >
-                Limpar Cache (Forçar SQLite)
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="text-xs text-red-400 underline"
-              >
-                Limpar API Key / Sair
-              </button>
-            </div>
+
           </div>
           {/* Header */}
           <div className="mb-8">
@@ -472,39 +354,6 @@ function AdminDashboard() {
                 </h3>
                                   <div className="flex space-x-2">
                     <Button
-                      onClick={async () => {
-                        if (bunnyApiKey) {
-                          setIsLoading(true);
-                          try {
-                            const filmesAtualizados = [...filmes];
-                            for (const filme of filmesAtualizados) {
-                              if (filme.videoGUID && filme.videoStatus !== 'Vídeo Pronto' && filme.videoStatus !== 'Erro') {
-                                const novoStatus = await verificarStatusVideo(filme.videoGUID);
-                                if (novoStatus !== filme.videoStatus) {
-                                  filme.videoStatus = novoStatus;
-                                  await filmeStorage.updateFilme(filme.GUID, filme);
-                                }
-                              }
-                            }
-                            setFilmes(filmesAtualizados);
-                            alert('Status dos vídeos atualizados!');
-                          } catch (error) {
-                            console.error('Erro ao atualizar status:', error);
-                            alert('Erro ao atualizar status dos vídeos');
-                          }
-                          setIsLoading(false);
-                        } else {
-                          alert('Configure a API Key do Bunny.net primeiro');
-                        }
-                      }}
-                      variant="outline"
-                      className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
-                      disabled={isLoading}
-                    >
-                      <RefreshCw className="h-4 w-4 mr-2" />
-                      {isLoading ? 'Atualizando...' : 'Atualizar Status'}
-                    </Button>
-                    <Button
                       onClick={() => {
                         const dataStr = JSON.stringify(filmes, null, 2);
                         const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
@@ -547,23 +396,13 @@ function AdminDashboard() {
                       <p className="text-vintage-cream/60 font-vintage-body text-sm mb-1">
                         {filme.ano || 'N/A'} • {filme.duracao || 'N/A'} • {filme.assistencias || 0} views
                       </p>
-                      {filme.videoGUID && (
-                        <span className={`inline-block text-xs px-2 py-1 rounded mb-2 ${
-                          filme.videoStatus === 'Vídeo Pronto' 
-                            ? 'bg-green-900 text-green-300' 
-                            : filme.videoStatus === 'Erro'
-                            ? 'bg-red-900 text-red-300'
-                            : 'bg-yellow-900 text-yellow-300'
-                        }`}>
-                          {filme.videoStatus || 'Processando'}
-                        </span>
-                      )}
                       <div className="flex space-x-2 mt-2">
                         <Button
                           size="sm"
                           onClick={() => {
                             console.log('🔄 Carregando filme para edição:', filme);
                             setFilmeEditando(filme);
+                            setShowEditModal(true);
                           }}
                           className="flex-1 bg-vintage-gold/20 text-vintage-gold hover:bg-vintage-gold hover:text-vintage-black border-vintage-gold/30"
                         >
@@ -586,58 +425,39 @@ function AdminDashboard() {
             </div>
           )}
 
-          {/* Novo Filme / Editar Filme Tab */}
-          {(activeTab === 'novo-filme' || filmeEditando) && (
+          {/* Novo Filme Tab */}
+          {activeTab === 'novo-filme' && (
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h3 className="text-xl font-vintage-serif font-semibold text-vintage-gold">
-                  {filmeEditando ? 'Editar Filme' : 'Adicionar Novo Filme'}
+                  Adicionar Novo Filme
                 </h3>
-                {filmeEditando && (
-                  <Button
-                    onClick={() => setFilmeEditando(null)}
-                    variant="outline"
-                    className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
-                  >
-                    <X className="h-4 w-4 mr-2" />
-                    Cancelar
-                  </Button>
-                )}
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                 {/* Formulário */}
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
-                      Nome Original
-                    </label>
-                    <input
-                      type="text"
-                      value={filmeEditando?.nomeOriginal || novoFilme.nomeOriginal}
-                      onChange={(e) => {
-                        if (filmeEditando) {
-                          setFilmeEditando({ ...filmeEditando, nomeOriginal: e.target.value });
-                        } else {
-                          setNovoFilme({ ...novoFilme, nomeOriginal: e.target.value });
-                        }
-                      }}
-                      className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
-                      placeholder="Digite o nome original do filme"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
                       Nome em Português
                     </label>
                     <input
                       type="text"
-                      value={filmeEditando?.nomePortugues || novoFilme.nomePortugues}
-                      onChange={(e) => filmeEditando
-                        ? setFilmeEditando({ ...filmeEditando, nomePortugues: e.target.value })
-                        : setNovoFilme({ ...novoFilme, nomePortugues: e.target.value })
-                      }
+                      value={novoFilme.nomePortugues}
+                      onChange={(e) => setNovoFilme({ ...novoFilme, nomePortugues: e.target.value })}
                       className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
                       placeholder="Digite o nome em português"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                      Nome Original
+                    </label>
+                    <input
+                      type="text"
+                      value={novoFilme.nomeOriginal}
+                      onChange={(e) => setNovoFilme({ ...novoFilme, nomeOriginal: e.target.value })}
+                      className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
+                      placeholder="Digite o nome original do filme"
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -647,11 +467,8 @@ function AdminDashboard() {
                       </label>
                       <input
                         type="text"
-                        value={filmeEditando?.ano || novoFilme.ano}
-                        onChange={(e) => filmeEditando
-                          ? setFilmeEditando({ ...filmeEditando, ano: e.target.value })
-                          : setNovoFilme({ ...novoFilme, ano: e.target.value })
-                        }
+                        value={novoFilme.ano}
+                        onChange={(e) => setNovoFilme({ ...novoFilme, ano: e.target.value })}
                         className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
                         placeholder="1925"
                       />
@@ -662,11 +479,8 @@ function AdminDashboard() {
                       </label>
                       <input
                         type="text"
-                        value={filmeEditando?.duracao || novoFilme.duracao}
-                        onChange={(e) => filmeEditando
-                          ? setFilmeEditando({ ...filmeEditando, duracao: e.target.value })
-                          : setNovoFilme({ ...novoFilme, duracao: e.target.value })
-                        }
+                        value={novoFilme.duracao}
+                        onChange={(e) => setNovoFilme({ ...novoFilme, duracao: e.target.value })}
                         className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
                         placeholder="1h30"
                       />
@@ -681,8 +495,8 @@ function AdminDashboard() {
                         <label key={categoria.id} className="flex items-center space-x-2 cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={(filmeEditando?.categoria || novoFilme.categoria).includes(categoria.nome)}
-                            onChange={() => toggleCategoria(categoria.nome, !!filmeEditando)}
+                            checked={novoFilme.categoria.includes(categoria.nome)}
+                            onChange={() => toggleCategoria(categoria.nome, false)}
                             className="rounded border-vintage-gold/30 text-vintage-gold focus:ring-vintage-gold focus:ring-offset-0"
                           />
                           <span className="text-sm text-vintage-cream font-vintage-body">{categoria.nome}</span>
@@ -754,11 +568,8 @@ function AdminDashboard() {
                       Sinopse
                     </label>
                     <textarea
-                      value={filmeEditando?.sinopse || novoFilme.sinopse}
-                      onChange={(e) => filmeEditando
-                        ? setFilmeEditando({ ...filmeEditando, sinopse: e.target.value })
-                        : setNovoFilme({ ...novoFilme, sinopse: e.target.value })
-                      }
+                      value={novoFilme.sinopse}
+                      onChange={(e) => setNovoFilme({ ...novoFilme, sinopse: e.target.value })}
                       rows={4}
                       className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body resize-none"
                       placeholder="Digite a sinopse do filme..."
@@ -775,20 +586,16 @@ function AdminDashboard() {
                       ) : (
                         <Save className="h-4 w-4 mr-2" />
                       )}
-                      {isLoading ? 'Salvando...' : (
-                        filmeEditando ? 'Salvar Alterações' : 'Adicionar Filme'
-                      )}
+                      {isLoading ? 'Salvando...' : 'Adicionar Filme'}
                     </Button>
-                    {!filmeEditando && (
-                      <Button
-                        onClick={limparFormulario}
-                        variant="outline"
-                        className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
-                      >
-                        <X className="h-4 w-4 mr-2" />
-                        Limpar
-                      </Button>
-                    )}
+                    <Button
+                      onClick={limparFormulario}
+                      variant="outline"
+                      className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                    >
+                      <X className="h-4 w-4 mr-2" />
+                      Limpar
+                    </Button>
                   </div>
                 </div>
                 {/* Preview */}
@@ -812,17 +619,17 @@ function AdminDashboard() {
                     </div>
                     <div className="p-4">
                       <h5 className="font-vintage-serif font-semibold text-vintage-cream mb-2">
-                        {filmeEditando?.nomePortugues || novoFilme.nomePortugues || 'Nome do filme'}
+                        {novoFilme.nomePortugues || 'Nome do filme'}
                       </h5>
                       <p className="text-vintage-cream/70 font-vintage-body text-sm italic mb-2">
-                        "{filmeEditando?.nomeOriginal || novoFilme.nomeOriginal || 'Nome original'}"
+                        "{novoFilme.nomeOriginal || 'Nome original'}"
                       </p>
                       <p className="text-vintage-cream/60 font-vintage-body text-sm mb-3">
-                        {filmeEditando?.ano || novoFilme.ano || '2024'} • {filmeEditando?.duracao || novoFilme.duracao || '0h00'}
+                        {novoFilme.ano || '2024'} • {novoFilme.duracao || '0h00'}
                       </p>
-                      {(filmeEditando?.categoria || novoFilme.categoria).length > 0 && (
+                      {novoFilme.categoria.length > 0 && (
                         <div className="flex flex-wrap gap-1 mb-3">
-                          {(filmeEditando?.categoria || novoFilme.categoria).slice(0, 3).map((cat, index) => (
+                          {novoFilme.categoria.slice(0, 3).map((cat, index) => (
                             <span
                               key={index}
                               className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body"
@@ -833,8 +640,213 @@ function AdminDashboard() {
                         </div>
                       )}
                       <p className="text-sm text-vintage-cream/80 font-vintage-body line-clamp-3">
-                        {filmeEditando?.sinopse || novoFilme.sinopse || 'Sinopse do filme aparecerá aqui...'}
+                        {novoFilme.sinopse || 'Sinopse do filme aparecerá aqui...'}
                       </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Modal de Edição */}
+          {showEditModal && filmeEditando && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className="bg-vintage-black border border-vintage-gold/30 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="flex justify-between items-center mb-6">
+                  <h3 className="text-xl font-vintage-serif font-bold text-vintage-gold">
+                    Editar Filme
+                  </h3>
+                  <Button
+                    onClick={() => {
+                      setShowEditModal(false);
+                      setFilmeEditando(null);
+                    }}
+                    variant="outline"
+                    className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                  {/* Formulário */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                        Nome em Português
+                      </label>
+                      <input
+                        type="text"
+                        value={filmeEditando.nomePortugues}
+                        onChange={(e) => setFilmeEditando({ ...filmeEditando, nomePortugues: e.target.value })}
+                        className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
+                        placeholder="Digite o nome em português"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                        Nome Original
+                      </label>
+                      <input
+                        type="text"
+                        value={filmeEditando.nomeOriginal}
+                        onChange={(e) => setFilmeEditando({ ...filmeEditando, nomeOriginal: e.target.value })}
+                        className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
+                        placeholder="Digite o nome original do filme"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                          Ano
+                        </label>
+                        <input
+                          type="text"
+                          value={filmeEditando.ano}
+                          onChange={(e) => setFilmeEditando({ ...filmeEditando, ano: e.target.value })}
+                          className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
+                          placeholder="1925"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                          Duração
+                        </label>
+                        <input
+                          type="text"
+                          value={filmeEditando.duracao}
+                          onChange={(e) => setFilmeEditando({ ...filmeEditando, duracao: e.target.value })}
+                          className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
+                          placeholder="1h30"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                        Categorias
+                      </label>
+                      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto vintage-scrollbar">
+                        {CATEGORIAS.map((categoria) => (
+                          <label key={categoria.id} className="flex items-center space-x-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={filmeEditando.categoria.includes(categoria.nome)}
+                              onChange={() => {
+                                const novasCategorias = filmeEditando.categoria.includes(categoria.nome)
+                                  ? filmeEditando.categoria.filter(c => c !== categoria.nome)
+                                  : [...filmeEditando.categoria, categoria.nome];
+                                setFilmeEditando({ ...filmeEditando, categoria: novasCategorias });
+                              }}
+                              className="rounded border-vintage-gold/30 text-vintage-gold focus:ring-vintage-gold focus:ring-offset-0"
+                            />
+                            <span className="text-sm text-vintage-cream font-vintage-body">{categoria.nome}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                        Sinopse
+                      </label>
+                      <textarea
+                        value={filmeEditando.sinopse}
+                        onChange={(e) => setFilmeEditando({ ...filmeEditando, sinopse: e.target.value })}
+                        rows={4}
+                        className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body resize-none"
+                        placeholder="Digite a sinopse do filme..."
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={async () => {
+                          try {
+                            setIsLoading(true);
+                            const atualizado = { 
+                              ...filmeEditando,
+                              videoStatus: (filmeEditando.videoGUID && filmeEditando.embedLink) ? 'Processado' : 'Processando' 
+                            };
+                            await filmeStorage.updateFilme(atualizado.GUID, atualizado);
+                            const filmesAtualizados = await filmeStorage.obterFilmes();
+                            setFilmes(filmesAtualizados);
+                            setShowEditModal(false);
+                            setFilmeEditando(null);
+                          } catch (error) {
+                            console.error('Erro ao atualizar filme:', error);
+                            alert('Erro ao atualizar filme. Tente novamente.');
+                          } finally {
+                            setIsLoading(false);
+                          }
+                        }}
+                        disabled={isLoading}
+                        className="btn-vintage flex-1"
+                      >
+                        {isLoading ? (
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-vintage-black mr-2"></div>
+                        ) : (
+                          <Save className="h-4 w-4 mr-2" />
+                        )}
+                        {isLoading ? 'Salvando...' : 'Salvar Alterações'}
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          setShowEditModal(false);
+                          setFilmeEditando(null);
+                        }}
+                        variant="outline"
+                        className="bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                      >
+                        <X className="h-4 w-4 mr-2" />
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Preview */}
+                  <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-6">
+                    <h4 className="text-lg font-vintage-serif font-semibold text-vintage-gold mb-4">Preview</h4>
+                    <div className="film-card">
+                      <div className="flex justify-center items-center w-full" style={{ height: '220px' }}>
+                        <img
+                          src={filmeEditando.imagemUrl || 'https://images.pexels.com/photos/22483588/pexels-photo-22483588.jpeg'}
+                          alt="Preview"
+                          style={{
+                            maxWidth: '180px',
+                            maxHeight: '200px',
+                            objectFit: 'contain',
+                            display: 'block',
+                            margin: '0 auto',
+                            borderRadius: '12px',
+                            background: '#222',
+                          }}
+                        />
+                      </div>
+                      <div className="p-4">
+                        <h5 className="font-vintage-serif font-semibold text-vintage-cream mb-2">
+                          {filmeEditando.nomePortugues || 'Nome do filme'}
+                        </h5>
+                        <p className="text-vintage-cream/70 font-vintage-body text-sm italic mb-2">
+                          "{filmeEditando.nomeOriginal || 'Nome original'}"
+                        </p>
+                        <p className="text-vintage-cream/60 font-vintage-body text-sm mb-3">
+                          {filmeEditando.ano || '2024'} • {filmeEditando.duracao || '0h00'}
+                        </p>
+                        {filmeEditando.categoria.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {filmeEditando.categoria.slice(0, 3).map((cat, index) => (
+                              <span
+                                key={index}
+                                className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body"
+                              >
+                                {cat}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-sm text-vintage-cream/80 font-vintage-body line-clamp-3">
+                          {filmeEditando.sinopse || 'Sinopse do filme aparecerá aqui...'}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>

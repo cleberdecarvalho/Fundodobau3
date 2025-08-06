@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { TOP_5_FILMES } from '@shared/mockData';
+// Removido import de dados mockados
 import { filmeStorage } from '../utils/filmeStorage';
 import { CATEGORIAS, DECADAS } from '@shared/types';
 
@@ -188,32 +188,43 @@ export default function Filmes() {
                     TOP 5 Mais Assistidos
                   </h3>
                   <div className="space-y-3">
-                    {TOP_5_FILMES.map((filme, index) => (
-                      <Link 
-                        key={filme.GUID} 
-                        to={`/filme/${filme.GUID}`}
-                        className="block group"
-                      >
-                        <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-vintage-gold/10 transition-colors">
-                          <span className="text-vintage-gold font-vintage-serif font-bold text-lg w-6">
-                            {index + 1}
-                          </span>
-                          <img 
-                            src={filme.imagemUrl} 
-                            alt={filme.nomePortugues}
-                            className="w-10 h-14 object-cover rounded"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-vintage-cream group-hover:text-vintage-gold transition-colors font-vintage-body truncate">
-                              {filme.nomePortugues}
-                            </p>
-                            <p className="text-xs text-vintage-cream/60 font-vintage-body">
-                              {filme.ano} • {filme.assistencias} views
-                            </p>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
+                    {filmes.length > 0 ? (
+                      filmes
+                        .sort((a, b) => (b.assistencias || 0) - (a.assistencias || 0))
+                        .slice(0, 5)
+                        .map((filme, index) => (
+                          <Link 
+                            key={filme.GUID} 
+                            to={`/filme/${filme.GUID}`}
+                            className="block group"
+                          >
+                            <div className="flex items-center space-x-3 p-2 rounded-lg hover:bg-vintage-gold/10 transition-colors">
+                              <span className="text-vintage-gold font-vintage-serif font-bold text-lg w-6">
+                                {index + 1}
+                              </span>
+                              <img 
+                                src={filme.imagemUrl} 
+                                alt={filme.nomePortugues}
+                                className="w-10 h-14 object-cover rounded"
+                              />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-vintage-cream group-hover:text-vintage-gold transition-colors font-vintage-body truncate">
+                                  {filme.nomePortugues}
+                                </p>
+                                <p className="text-xs text-vintage-cream/60 font-vintage-body">
+                                  {filme.ano} • {filme.assistencias || 0} views
+                                </p>
+                              </div>
+                            </div>
+                          </Link>
+                        ))
+                    ) : (
+                      <div className="text-center py-4">
+                        <p className="text-sm text-vintage-cream/60 font-vintage-body">
+                          Nenhum filme disponível
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
