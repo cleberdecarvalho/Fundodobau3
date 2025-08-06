@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download, Calendar, Clock } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download, Calendar, Clock, Search, Filter, X as XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { CATEGORIAS, DECADAS } from '@shared/types';
@@ -17,7 +17,14 @@ function AdminDashboard() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'filmes' | 'novo-filme' | 'carrossel' | 'sliders'>('dashboard');
   const [filmes, setFilmes] = useState<Filme[]>([]);
+  const [filmesFiltrados, setFilmesFiltrados] = useState<Filme[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Estados para filtros
+  const [filtroCategorias, setFiltroCategorias] = useState<string[]>([]);
+  const [filtroDecada, setFiltroDecada] = useState<string>('');
+  const [buscaTexto, setBuscaTexto] = useState<string>('');
+  const [ordenacao, setOrdenacao] = useState<'nome' | 'ano' | 'assistencias'>('nome');
   const [filmeEditando, setFilmeEditando] = useState<Filme | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -63,6 +70,53 @@ function AdminDashboard() {
   const pollingRef = useRef<NodeJS.Timeout|null>(null);
   
 
+
+  // Função para aplicar filtros
+  const aplicarFiltros = () => {
+    let filmesFiltrados = [...filmes];
+
+    // Filtro por busca de texto
+    if (buscaTexto) {
+      filmesFiltrados = filmesFiltrados.filter(filme =>
+        filme.nomePortugues?.toLowerCase().includes(buscaTexto.toLowerCase()) ||
+        filme.nomeOriginal?.toLowerCase().includes(buscaTexto.toLowerCase()) ||
+        filme.sinopse?.toLowerCase().includes(buscaTexto.toLowerCase())
+      );
+    }
+
+    // Filtro por categorias
+    if (filtroCategorias.length > 0) {
+      filmesFiltrados = filmesFiltrados.filter(filme =>
+        filtroCategorias.some(cat => filme.categoria?.includes(cat))
+      );
+    }
+
+    // Filtro por década
+    if (filtroDecada && filtroDecada !== 'todas') {
+      filmesFiltrados = filmesFiltrados.filter(filme => 
+        filme.ano?.startsWith(filtroDecada)
+      );
+    }
+
+    // Ordenação
+    filmesFiltrados.sort((a, b) => {
+      switch (ordenacao) {
+        case 'ano':
+          return parseInt(b.ano || '0') - parseInt(a.ano || '0');
+        case 'assistencias':
+          return (b.assistencias || 0) - (a.assistencias || 0);
+        default:
+          return (a.nomePortugues || '').localeCompare(b.nomePortugues || '');
+      }
+    });
+
+    setFilmesFiltrados(filmesFiltrados);
+  };
+
+  // Aplicar filtros sempre que os filmes ou filtros mudarem
+  useEffect(() => {
+    aplicarFiltros();
+  }, [filmes, buscaTexto, filtroCategorias, filtroDecada, ordenacao]);
 
   // Função para limpar formulário
   const limparFormulario = () => {
@@ -596,7 +650,7 @@ function AdminDashboard() {
             <div className="space-y-4">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xl font-semibold text-vintage-gold">
-                  Lista de Filmes ({filmes.length})
+                  Lista de Filmes ({filmesFiltrados.length} de {filmes.length})
                 </h3>
                 <div className="flex space-x-2">
                     <Button
@@ -624,9 +678,121 @@ function AdminDashboard() {
                     </Button>
                   </div>
               </div>
+
+              {/* Filtros */}
+              <div className="bg-vintage-black/20 border border-vintage-gold/20 rounded-lg p-4 mb-6">
+                <div className="flex items-center space-x-2 mb-4">
+                  <Filter className="h-5 w-5 text-vintage-gold" />
+                  <h4 className="text-lg font-semibold text-vintage-gold">Filtros</h4>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {/* Busca por texto */}
+                  <div>
+                    <label className="block text-sm font-semibold text-vintage-gold mb-2">Buscar</label>
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-vintage-cream/50" />
+                      <input
+                        type="text"
+                        value={buscaTexto}
+                        onChange={(e) => setBuscaTexto(e.target.value)}
+                        placeholder="Nome do filme..."
+                        className="w-full pl-10 pr-4 py-2 bg-vintage-black/50 border border-vintage-gold/30 rounded-lg text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Filtro por década */}
+                  <div>
+                    <label className="block text-sm font-semibold text-vintage-gold mb-2">Década</label>
+                    <select
+                      value={filtroDecada}
+                      onChange={(e) => setFiltroDecada(e.target.value)}
+                      className="w-full px-4 py-2 bg-vintage-black/50 border border-vintage-gold/30 rounded-lg text-vintage-cream focus:border-vintage-gold focus:outline-none"
+                    >
+                      <option value="">Todas as décadas</option>
+                      {DECADAS.map((decada) => (
+                        <option key={decada.id} value={decada.id}>
+                          {decada.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Ordenação */}
+                  <div>
+                    <label className="block text-sm font-semibold text-vintage-gold mb-2">Ordenar por</label>
+                    <select
+                      value={ordenacao}
+                      onChange={(e) => setOrdenacao(e.target.value as 'nome' | 'ano' | 'assistencias')}
+                      className="w-full px-4 py-2 bg-vintage-black/50 border border-vintage-gold/30 rounded-lg text-vintage-cream focus:border-vintage-gold focus:outline-none"
+                    >
+                      <option value="nome">Nome</option>
+                      <option value="ano">Ano</option>
+                      <option value="assistencias">Visualizações</option>
+                    </select>
+                  </div>
+
+                  {/* Botão limpar filtros */}
+                  <div className="flex items-end">
+                    <Button
+                      onClick={() => {
+                        setBuscaTexto('');
+                        setFiltroCategorias([]);
+                        setFiltroDecada('');
+                        setOrdenacao('nome');
+                      }}
+                      variant="outline"
+                      className="w-full bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                    >
+                      <XIcon className="h-4 w-4 mr-2" />
+                      Limpar Filtros
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Filtro por categorias */}
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-vintage-gold mb-2">Categorias</label>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      onClick={() => setFiltroCategorias([])}
+                      variant={filtroCategorias.length === 0 ? "default" : "outline"}
+                      size="sm"
+                      className={filtroCategorias.length === 0 
+                        ? "bg-vintage-gold text-vintage-black" 
+                        : "bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                      }
+                    >
+                      TODOS
+                    </Button>
+                    {CATEGORIAS.map((categoria) => (
+                      <Button
+                        key={categoria.id}
+                        onClick={() => {
+                          if (filtroCategorias.includes(categoria.nome)) {
+                            setFiltroCategorias(filtroCategorias.filter(cat => cat !== categoria.nome));
+                          } else {
+                            setFiltroCategorias([...filtroCategorias, categoria.nome]);
+                          }
+                        }}
+                        variant={filtroCategorias.includes(categoria.nome) ? "default" : "outline"}
+                        size="sm"
+                        className={filtroCategorias.includes(categoria.nome)
+                          ? "bg-vintage-gold text-vintage-black"
+                          : "bg-transparent border-vintage-gold/30 text-vintage-cream hover:bg-vintage-gold/20"
+                        }
+                      >
+                        {categoria.nome}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
               <div className="relative">
                 <div className="flex space-x-3 overflow-x-auto scrollbar-hide pb-4">
-                  {filmes.map((filme) => (
+                  {filmesFiltrados.map((filme) => (
                   <div key={filme.GUID || filme.id || Math.random()} className="flex-shrink-0 w-56 film-card relative bg-vintage-black/20 rounded-lg overflow-hidden border border-vintage-gold/10">
                     {/* Imagem do Filme */}
                     <div className="relative overflow-hidden">
