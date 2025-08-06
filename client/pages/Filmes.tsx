@@ -18,11 +18,17 @@ export default function Filmes() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
-  // Carregar busca da URL
+  // Carregar parâmetros da URL
   useEffect(() => {
     const queryFromUrl = searchParams.get('q');
+    const categoriaFromUrl = searchParams.get('categoria');
+    
     if (queryFromUrl) {
       setSearchQuery(queryFromUrl);
+    }
+    
+    if (categoriaFromUrl) {
+      setSelectedCategorias([categoriaFromUrl]);
     }
   }, [searchParams]);
 

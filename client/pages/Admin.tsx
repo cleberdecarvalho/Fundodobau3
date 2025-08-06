@@ -221,16 +221,28 @@ function AdminDashboard() {
       }
       
       setImportStatus('success');
-      setImportMessage(`Importação concluída! ${sucessos} filmes importados com sucesso, ${erros} erros.`);
+      setImportMessage(`Importação concluída! ${sucessos} filmes importados com sucesso, ${erros} erros. Lista atualizada automaticamente.`);
       
-      // Recarregar filmes após importação
+      // Recarregar filmes imediatamente após importação
+      try {
+        await fetchFilmes();
+        console.log('✅ Filmes recarregados após importação');
+        
+        // Forçar atualização dos filtros
+        setTimeout(() => {
+          aplicarFiltros();
+        }, 100);
+      } catch (error) {
+        console.error('❌ Erro ao recarregar filmes:', error);
+      }
+      
+      // Fechar modal após 2 segundos
       setTimeout(() => {
-        fetchFilmes();
         setShowImportModal(false);
         setImportStatus('idle');
         setImportMessage('');
         setImportProgress({ current: 0, total: 0 });
-      }, 3000);
+      }, 2000);
       
     } catch (error) {
       setImportStatus('error');
@@ -1247,8 +1259,8 @@ function AdminDashboard() {
           {/* Modal de Edição */}
           {showEditModal && filmeEditando && (
             <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-              <div className="bg-vintage-black border border-vintage-gold/30 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-                <div className="flex justify-between items-center mb-6">
+              <div className="bg-vintage-black border border-vintage-gold/30 rounded-lg p-4 max-w-5xl w-full max-h-[85vh] overflow-hidden">
+                <div className="flex justify-between items-center mb-4">
                   <h3 className="text-xl font-vintage-serif font-bold text-vintage-gold">
                     Editar Filme
                   </h3>
@@ -1264,64 +1276,64 @@ function AdminDashboard() {
                   </Button>
                 </div>
                 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-[calc(85vh-120px)]">
                   {/* Formulário */}
-                  <div className="space-y-4">
+                  <div className="space-y-3 overflow-y-auto pr-2">
                     <div>
-                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-1">
                         Nome em Português
                       </label>
                       <input
                         type="text"
                         value={filmeEditando.nomePortugues}
                         onChange={(e) => setFilmeEditando({ ...filmeEditando, nomePortugues: e.target.value })}
-                        className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
+                        className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
                         placeholder="Digite o nome em português"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-1">
                         Nome Original
                       </label>
                       <input
                         type="text"
                         value={filmeEditando.nomeOriginal}
                         onChange={(e) => setFilmeEditando({ ...filmeEditando, nomeOriginal: e.target.value })}
-                        className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
+                        className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
                         placeholder="Digite o nome original do filme"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                        <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-1">
                           Ano
                         </label>
                         <input
                           type="text"
                           value={filmeEditando.ano}
                           onChange={(e) => setFilmeEditando({ ...filmeEditando, ano: e.target.value })}
-                          className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
+                          className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
                           placeholder="1925"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                        <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-1">
                           Duração
                         </label>
                         <input
                           type="text"
                           value={filmeEditando.duracao}
                           onChange={(e) => setFilmeEditando({ ...filmeEditando, duracao: e.target.value })}
-                          className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
+                          className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body"
                           placeholder="1h30"
                         />
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-1">
                         Categorias
                       </label>
-                      <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto vintage-scrollbar">
+                      <div className="grid grid-cols-2 gap-2 max-h-32 overflow-y-auto vintage-scrollbar">
                         {CATEGORIAS.map((categoria) => (
                           <label key={categoria.id} className="flex items-center space-x-2 cursor-pointer">
                             <input
@@ -1341,14 +1353,14 @@ function AdminDashboard() {
                       </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-2">
+                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-1">
                         Sinopse
                       </label>
                       <textarea
                         value={filmeEditando.sinopse}
                         onChange={(e) => setFilmeEditando({ ...filmeEditando, sinopse: e.target.value })}
-                        rows={4}
-                        className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-4 py-3 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body resize-none"
+                        rows={3}
+                        className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body resize-none"
                         placeholder="Digite a sinopse do filme..."
                       />
                     </div>
@@ -1396,50 +1408,58 @@ function AdminDashboard() {
                     </div>
                   </div>
                   
-                  {/* Preview */}
-                  <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-6">
-                    <h4 className="text-lg font-vintage-serif font-semibold text-vintage-gold mb-4">Preview</h4>
-                    <div className="film-card">
-                      <div className="flex justify-center items-center w-full" style={{ height: '220px' }}>
-                        <img
-                          src={filmeEditando.imagemUrl || 'https://images.pexels.com/photos/22483588/pexels-photo-22483588.jpeg'}
-                          alt="Preview"
-                          style={{
-                            maxWidth: '180px',
-                            maxHeight: '200px',
-                            objectFit: 'contain',
-                            display: 'block',
-                            margin: '0 auto',
-                            borderRadius: '12px',
-                            background: '#222',
-                          }}
+                  {/* Preview - Card igual ao da página inicial */}
+                  <div className="flex justify-center items-start">
+                    <div className="w-56 film-card relative bg-vintage-black/20 rounded-lg overflow-hidden border border-vintage-gold/10">
+                      {/* Imagem do Filme */}
+                      <div className="relative overflow-hidden">
+                        <img 
+                          src={filmeEditando.imagemUrl || 'https://images.pexels.com/photos/22483588/pexels-photo-22483588.jpeg'} 
+                          alt={filmeEditando.nomePortugues || filmeEditando.nomeOriginal || 'Filme'} 
+                          className="w-full h-72 object-cover" 
                         />
                       </div>
-                      <div className="p-4">
-                        <h5 className="font-vintage-serif font-semibold text-vintage-cream mb-2">
-                          {filmeEditando.nomePortugues || 'Nome do filme'}
-                        </h5>
-                        <p className="text-vintage-cream/70 font-vintage-body text-sm italic mb-2">
-                          "{filmeEditando.nomeOriginal || 'Nome original'}"
+                      
+                      {/* Informações do Filme - Layout Compacto */}
+                      <div className="p-3">
+                        {/* Título Principal */}
+                        <h4 className="font-semibold text-base text-vintage-cream mb-1 line-clamp-1">
+                          {filmeEditando.nomePortugues || filmeEditando.nomeOriginal || 'Sem título'}
+                        </h4>
+                        
+                        {/* Título Original */}
+                        <p className="text-sm text-vintage-cream/70 italic mb-2 line-clamp-1">
+                          "{filmeEditando.nomeOriginal || filmeEditando.nomePortugues || 'Sem título original'}"
                         </p>
-                        <p className="text-vintage-cream/60 font-vintage-body text-sm mb-3">
-                          {filmeEditando.ano || '2024'} • {filmeEditando.duracao || '0h00'}
-                        </p>
-                        {filmeEditando.categoria.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mb-3">
-                            {filmeEditando.categoria.slice(0, 3).map((cat, index) => (
-                              <span
-                                key={index}
-                                className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body"
-                              >
-                                {cat}
-                              </span>
-                            ))}
+            
+                        {/* Meta Info Compacta */}
+                        <div className="flex items-center justify-between text-xs text-vintage-cream/60 mb-2">
+                          <div className="flex items-center space-x-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>{filmeEditando.ano || 'N/A'}</span>
                           </div>
-                        )}
-                        <p className="text-sm text-vintage-cream/80 font-vintage-body line-clamp-3">
-                          {filmeEditando.sinopse || 'Sinopse do filme aparecerá aqui...'}
-                        </p>
+                          <div className="flex items-center space-x-1">
+                            <Clock className="h-3 w-3" />
+                            <span>{filmeEditando.duracao || 'N/A'}</span>
+                          </div>
+                        </div>
+            
+                        {/* Categorias Compactas */}
+                        <div className="flex flex-wrap gap-1">
+                          {filmeEditando.categoria && filmeEditando.categoria.slice(0, 3).map((cat, index) => (
+                            <span
+                              key={`${filmeEditando.GUID}-cat-${index}`}
+                              className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded"
+                            >
+                              {cat}
+                            </span>
+                          ))}
+                          {filmeEditando.categoria && filmeEditando.categoria.length > 3 && (
+                            <span className="text-xs text-vintage-cream/50">
+                              +{filmeEditando.categoria.length - 3}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
