@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 // Removido import de dados mockados
-import { filmeStorage } from '../utils/filmeStorage';
+import { useFilmes } from '../context/FilmesContext';
 import { CATEGORIAS, DECADAS } from '@shared/types';
 
 export default function Filmes() {
@@ -32,21 +32,8 @@ export default function Filmes() {
     }
   }, [searchParams]);
 
-  // Obter filmes do sistema de armazenamento
-  const [filmes, setFilmes] = useState<Filme[]>([]);
-
-  useEffect(() => {
-    const carregarFilmes = async () => {
-      try {
-        const filmesCarregados = await filmeStorage.obterFilmes();
-        setFilmes(filmesCarregados);
-      } catch (error) {
-        console.error('Erro ao carregar filmes:', error);
-        setFilmes([]);
-      }
-    };
-    carregarFilmes();
-  }, []);
+  // Obter filmes do contexto
+  const { filmes } = useFilmes();
 
   // Filtrar filmes
   const filmesFiltrados = useMemo(() => {

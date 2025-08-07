@@ -2,43 +2,26 @@ import { useState, useEffect } from 'react';
 import { HeroCarousel } from '../components/HeroCarousel';
 import { FilmSlider } from '../components/FilmSlider';
 // Removido import de dados mockados
-import { filmeStorage } from '../utils/filmeStorage';
+import { useFilmes } from '../context/FilmesContext';
 import { Filme } from '@shared/types';
 
 export default function Index() {
-  const [filmes, setFilmes] = useState<Filme[]>([]);
+  const { filmes } = useFilmes();
   const [filmesPorCategoria, setFilmesPorCategoria] = useState<Record<string, Filme[]>>({});
   const [sliders, setSliders] = useState<any[]>([]);
 
   useEffect(() => {
-    const carregarFilmes = async () => {
-      try {
-        const todosFilmes = await filmeStorage.obterFilmes();
-        console.log('Filmes carregados:', todosFilmes);
-        setFilmes(todosFilmes);
-
-        // Organizar filmes por categoria
-        const categorias = {
-          'Drama': todosFilmes.filter(f => f.categoria.includes('Drama')),
-          'Romance': todosFilmes.filter(f => f.categoria.includes('Romance')),
-          'Crime': todosFilmes.filter(f => f.categoria.includes('Crime')),
-          'Suspense': todosFilmes.filter(f => f.categoria.includes('Suspense')),
-          'Comédia': todosFilmes.filter(f => f.categoria.includes('Comédia')),
-          'Musical': todosFilmes.filter(f => f.categoria.includes('Musical')),
-        };
-        setFilmesPorCategoria(categorias);
-      } catch (error) {
-        console.error('Erro ao carregar filmes:', error);
-        // Não usar dados mock - mostrar erro real
-        setFilmes([]);
-        setFilmesPorCategoria({});
-        console.error('❌ ERRO: Não foi possível carregar filmes do MySQL da Hostgator');
-        console.error('❌ Detalhes do erro:', error);
-      }
+    // Organizar filmes por categoria
+    const categorias = {
+      'Drama': filmes.filter(f => f.categoria.includes('Drama')),
+      'Romance': filmes.filter(f => f.categoria.includes('Romance')),
+      'Crime': filmes.filter(f => f.categoria.includes('Crime')),
+      'Suspense': filmes.filter(f => f.categoria.includes('Suspense')),
+      'Comédia': filmes.filter(f => f.categoria.includes('Comédia')),
+      'Musical': filmes.filter(f => f.categoria.includes('Musical')),
     };
-
-    carregarFilmes();
-  }, []);
+    setFilmesPorCategoria(categorias);
+  }, [filmes]);
 
   // Carregar sliders configurados
   useEffect(() => {
