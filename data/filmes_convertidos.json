@@ -1,0 +1,13 @@
+[/* TODO: Inserir aqui todos os filmes convertidos do arquivo original, formato camelCase, categoria como array, JSON válido. */]
+    "guid": "39ea0979-42fe-4d3c-b4b9-ba91370eac0f",
+    "nomeOriginal": "The Trap",
+    "nomePortugues": "A Armadilha",
+    "ano": "1922",
+    "categorias": ["Drama", "Suspense", "Western"],
+    "duracao": "53min",
+    "sinopse": "Dirigido por Robert Thornby, é um drama do cinema mudo estrelado pelo lendário Lon Chaney. Ele interpreta Gaspard, um pacato minerador franco-canadense cuja vida é destruída quando seu rival, Benson, rouba sua mina e sua noiva. Anos depois, Gaspard, amargurado e aleijado, busca uma vingança meticulosa. O filme é um exemplo clássico dos papéis de Chaney, que combinavam maquiagem transformadora com uma performance física e emocionalmente intensa. Filmado em locações naturais, The Trap é um conto sombrio sobre obsessão e retribuição, notável pela atuação poderosa de seu protagonista.",
+    "embedLink": "<iframe src=\"https://iframe.mediadelivery.net/embed/256964/39ea0979-42fe-4d3c-b4b9-ba91370eac0f?autoplay=false&loop=false&muted=false&preload=true&responsive=true\" allowfullscreen=\"true\"></iframe>",
+    "imagemUrl": "/images/filmes/a-armadilha.webp",
+    "videoGuid": "ae7cd1ad-0570-424e-9d93-ebc489dac043"
+  }
+]

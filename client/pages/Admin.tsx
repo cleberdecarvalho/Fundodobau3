@@ -39,6 +39,7 @@ function AdminDashboard() {
     { posicao: 1, filmeId: null, imagemUrl: null, ativo: false },
     { posicao: 2, filmeId: null, imagemUrl: null, ativo: false }
   ]);
+  const [savingCarrossel, setSavingCarrossel] = useState(false);
 
   // Estados para Sliders
   const [sliders, setSliders] = useState<any[]>([]);
@@ -300,10 +301,16 @@ function AdminDashboard() {
   useEffect(() => {
     async function fetchCarrossel() {
       try {
-        const response = await fetch('http://localhost:8084/api/carrossel');
+        const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/carrossel');
         if (response.ok) {
           const data = await response.json();
-          setCarrossel(data.carrossel);
+          const fallback = [
+            { posicao: 0, filmeId: null, imagemUrl: null, ativo: false },
+            { posicao: 1, filmeId: null, imagemUrl: null, ativo: false },
+            { posicao: 2, filmeId: null, imagemUrl: null, ativo: false },
+          ];
+          const items = Array.isArray(data?.carrossel) ? data.carrossel : fallback;
+          setCarrossel(items);
         }
       } catch (error) {
         console.error('Erro ao carregar carrossel:', error);
@@ -312,20 +319,33 @@ function AdminDashboard() {
     fetchCarrossel();
   }, []);
 
-  // Carregar sliders
-  useEffect(() => {
-    async function fetchSliders() {
-      try {
-        const response = await fetch('http://localhost:8084/api/sliders');
-        if (response.ok) {
-          const data = await response.json();
-          setSliders(data.sliders);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar sliders:', error);
+  // Função reutilizável para carregar sliders
+  const reloadSliders = async () => {
+    try {
+      const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/sliders');
+      const text = await response.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch (e) {
+        console.warn('Listar sliders: resposta não-JSON', { status: response.status, text });
       }
+      if (response.ok) {
+        const list = Array.isArray(data?.sliders)
+          ? data.sliders
+          : (Array.isArray(data) ? data : []);
+        setSliders(list);
+      } else {
+        console.error('Erro ao carregar sliders', { status: response.status, text, data });
+        setSliders([]);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar sliders:', error);
+      setSliders([]);
     }
-    fetchSliders();
+  };
+
+  // Carregar sliders ao montar
+  useEffect(() => {
+    reloadSliders();
   }, []);
 
   // Carregar estatísticas de usuários e avaliações
@@ -527,9 +547,7 @@ function AdminDashboard() {
       console.error('Erro ao deletar filme:', error);
     }
   };
-
-  // Estatísticas já estão sendo calculadas no estado stats
-
+  
   // Funções para gerenciar o carrossel
   const handleCarrosselImageUpload = async (file: File, posicao: number, nomeFilme: string) => {
     try {
@@ -537,55 +555,111 @@ function AdminDashboard() {
       reader.onload = async (e) => {
         const base64 = e.target?.result as string;
         
-        const response = await fetch('http://localhost:8084/api/salvar-imagem-carrossel', {
+        const form = new FormData();
+        form.append('imagem', file);
+        form.append('nomeFilme', nomeFilme);
+        form.append('posicao', String(posicao));
+
+        const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/salvar-imagem-carrossel', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            imagemBase64: base64,
-            nomeFilme: nomeFilme,
-            posicao: posicao
-          }),
+          body: form,
         });
         
-        if (response.ok) {
-          const result = await response.json();
-          const novoCarrossel = [...carrossel];
-          novoCarrossel[posicao].imagemUrl = result.caminho;
-          setCarrossel(novoCarrossel);
+        const text = await response.text();
+        let result: any = null;
+        try { result = text ? JSON.parse(text) : null; } catch (e) {
+          console.error('Upload carrossel: resposta não-JSON', { status: response.status, text });
         }
+
+        if (!response.ok || !result?.success || !result?.caminho) {
+          console.error('Falha no upload da imagem do carrossel', { status: response.status, text, result });
+          alert(`Falha no upload da imagem (status ${response.status}). Veja o console para detalhes.`);
+          return;
+        }
+
+        const novoCarrossel = [...carrossel];
+        novoCarrossel[posicao].imagemUrl = result.caminho;
+        setCarrossel(novoCarrossel);
       };
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Erro ao fazer upload da imagem do carrossel:', error);
+      console.error('Erro inesperado no upload do carrossel:', error);
     }
   };
 
   const handleSalvarCarrossel = async () => {
     try {
-      const response = await fetch('http://localhost:8084/api/carrossel', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ carrossel }),
+      setSavingCarrossel(true);
+      // Validação rápida: apenas itens ativos e completos
+      const itensValidos = carrossel
+        .filter((i) => i && i.ativo && i.filmeId && i.imagemUrl)
+        .map((i) => ({
+          posicao: i.posicao,
+          filmeId: i.filmeId,
+          imagemUrl: i.imagemUrl,
+          ativo: i.ativo ? 1 : 0,
+        }));
+
+      // Diagnóstico: mostrar motivos por posição
+      const faltantes: string[] = [];
+      carrossel.forEach((i, idx) => {
+        if (!i) return;
+        if (i.ativo) {
+          const problemas: string[] = [];
+          if (!i.filmeId) problemas.push('filme');
+          if (!i.imagemUrl) problemas.push('imagem');
+          if (problemas.length) faltantes.push(`Posição ${idx + 1}: faltando ${problemas.join(' e ')}`);
+        }
       });
-      
-      if (response.ok) {
-        // Carrossel salvo com sucesso
+      if (faltantes.length) {
+        console.warn('Validação carrossel - problemas detectados:', { carrossel, faltantes });
       } else {
-        console.error('Erro ao salvar carrossel');
+        console.log('Validação carrossel - itens prontos para salvar:', { itensValidos, carrossel });
+      }
+
+      if (itensValidos.length === 0) {
+        alert('Selecione ao menos 1 item com Filme, Imagem e Ativo marcado.' + (faltantes.length ? `\n\nDetalhes:\n- ${faltantes.join('\n- ')}` : ''));
+        console.warn('Salvar Carrossel - itens inválidos', { carrossel });
+        return;
+      }
+
+      const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/carrossel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ carrossel: itensValidos }),
+      });
+
+      const text = await response.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch (e) { /* resposta não-JSON */ }
+
+      if (response.ok && data?.success) {
+        console.log('✅ Carrossel salvo com sucesso:', data);
+        alert('Carrossel salvo com sucesso!');
+        // Recarrega carrossel da API
+        await fetchCarrossel();
+      } else {
+        console.error('❌ Erro ao salvar carrossel', { status: response.status, text, data });
+        alert(`Erro ao salvar carrossel (status ${response.status}). Veja o console para detalhes.`);
       }
     } catch (error) {
-      console.error('Erro ao salvar carrossel:', error);
+      console.error('❌ Erro ao salvar carrossel:', error);
+      alert('Erro inesperado ao salvar o carrossel. Veja o console para detalhes.');
+    } finally {
+      setSavingCarrossel(false);
     }
   };
 
   // Funções para gerenciar sliders
   const handleCriarSlider = async () => {
     try {
-      const response = await fetch('http://localhost:8084/api/sliders', {
+      // ... restante do código ...
+      // Validação mínima no front
+      if (!novoSlider?.titulo || !novoSlider?.tipo) {
+        alert('Preencha ao menos Título e Tipo do slider.');
+        return;
+      }
+      const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/sliders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -593,21 +667,39 @@ function AdminDashboard() {
         body: JSON.stringify({ slider: novoSlider }),
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        setSliders([...sliders, data.slider]);
-        setNovoSlider({
-          titulo: '',
-          tipo: 'categoria',
-          filtro: '',
-          filmesIds: []
-        });
-        setShowSliderModal(false);
-      } else {
-        console.error('Erro ao criar slider');
+      const text = await response.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch (e) {
+        console.warn('Criar slider: resposta não-JSON', { status: response.status, text });
       }
+
+      if (!response.ok) {
+        console.error('Erro ao criar slider', { status: response.status, text, data });
+        alert(`Erro ao criar slider (status ${response.status}).`);
+        return;
+      }
+
+      const sucesso = data?.success === true || !!data?.slider || Array.isArray(data);
+      if (!sucesso) {
+        console.error('Criação de slider sem sucesso explícito', { status: response.status, text, data });
+        alert('Não foi possível confirmar a criação do slider. Tente novamente.');
+        return;
+      }
+
+      const novo = data?.slider ?? data ?? { ...novoSlider, id: `temp-${Date.now()}` };
+      // Atualiza lista local imediatamente e também garante consistência recarregando do backend
+      setSliders((prev) => [ ...(Array.isArray(prev) ? prev : []), novo ]);
+      setNovoSlider({
+        titulo: '',
+        tipo: 'categoria',
+        filtro: '',
+        filmesIds: []
+      });
+      await reloadSliders();
+      setShowSliderModal(false);
     } catch (error) {
       console.error('Erro ao criar slider:', error);
+      alert('Falha ao criar slider. Veja o console para detalhes.');
     }
   };
 
@@ -615,7 +707,11 @@ function AdminDashboard() {
     if (!sliderEditando) return;
     
     try {
-      const response = await fetch(`http://localhost:8084/api/sliders/${sliderEditando.id}`, {
+      if (!sliderEditando?.titulo || !sliderEditando?.tipo) {
+        alert('Preencha ao menos Título e Tipo do slider.');
+        return;
+      }
+      const response = await fetch(`https://www.fundodobaufilmes.com/api-filmes.php/sliders/${sliderEditando.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -623,16 +719,33 @@ function AdminDashboard() {
         body: JSON.stringify({ slider: sliderEditando }),
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        setSliders(sliders.map(s => s.id === sliderEditando.id ? data.slider : s));
-        setSliderEditando(null);
-        setShowSliderModal(false);
-      } else {
-        console.error('Erro ao atualizar slider');
+      const text = await response.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch (e) {
+        console.warn('Editar slider: resposta não-JSON', { status: response.status, text });
       }
+
+      if (!response.ok) {
+        console.error('Erro ao atualizar slider', { status: response.status, text, data });
+        alert(`Erro ao atualizar slider (status ${response.status}).`);
+        return;
+      }
+
+      const sucesso = data?.success === true || !!data?.slider;
+      if (!sucesso) {
+        console.error('Atualização de slider sem sucesso explícito', { status: response.status, text, data });
+        alert('Não foi possível confirmar a atualização do slider. Tente novamente.');
+        return;
+      }
+
+      const atualizado = data?.slider ?? sliderEditando;
+      setSliders((prev) => (Array.isArray(prev) ? prev.map(s => s.id === sliderEditando.id ? atualizado : s) : []));
+      await reloadSliders();
+      setSliderEditando(null);
+      setShowSliderModal(false);
     } catch (error) {
       console.error('Erro ao atualizar slider:', error);
+      alert('Falha ao atualizar slider. Veja o console para detalhes.');
     }
   };
 
@@ -640,12 +753,14 @@ function AdminDashboard() {
     if (!confirm('Tem certeza que deseja excluir este slider?')) return;
     
     try {
-      const response = await fetch(`http://localhost:8084/api/sliders/${id}`, {
+      const response = await fetch(`https://www.fundodobaufilmes.com/api-filmes.php/sliders/${id}`, {
         method: 'DELETE',
       });
       
       if (response.ok) {
-        setSliders(sliders.filter(s => s.id !== id));
+        setSliders((prev) => (Array.isArray(prev) ? prev.filter(s => s.id !== id) : []));
+        // Recarrega da API
+        reloadSliders();
       } else {
         console.error('Erro ao excluir slider');
       }
@@ -1478,9 +1593,10 @@ function AdminDashboard() {
                 <Button
                   onClick={handleSalvarCarrossel}
                   className="btn-vintage"
+                  disabled={savingCarrossel}
                 >
                   <Save className="h-4 w-4 mr-2" />
-                  Salvar Carrossel
+                  {savingCarrossel ? 'Salvando...' : 'Salvar Carrossel'}
                 </Button>
               </div>
               
@@ -1596,7 +1712,7 @@ function AdminDashboard() {
               
               {/* Lista de Sliders */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {sliders.map((slider) => (
+                {(Array.isArray(sliders) ? sliders : []).map((slider) => (
                   <div key={slider.id} className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-6">
                     <div className="flex justify-between items-start mb-4">
                       <h4 className="text-lg font-semibold text-vintage-gold">
@@ -1627,13 +1743,13 @@ function AdminDashboard() {
                       {slider.tipo === 'personalizado' && (
                         <p><strong>Filmes:</strong> {slider.filmesIds?.length || 0} selecionados</p>
                       )}
-                      <p><strong>Criado:</strong> {new Date(slider.createdAt).toLocaleDateString('pt-BR')}</p>
+                      <p><strong>Criado:</strong> {slider.createdAt ? new Date(slider.createdAt).toLocaleDateString('pt-BR') : '-'}</p>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {sliders.length === 0 && (
+              {(Array.isArray(sliders) ? sliders : []).length === 0 && (
                 <div className="text-center py-12">
                   <p className="text-vintage-cream/60">Nenhum slider criado ainda.</p>
                   <p className="text-vintage-cream/40 text-sm">Clique em "Novo Slider" para começar.</p>

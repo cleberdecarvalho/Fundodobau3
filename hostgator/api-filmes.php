@@ -8,10 +8,10 @@ header('Pragma: no-cache');
 header('Expires: 0');
 
 // Configuração do banco
-$host = 'localhost';
-$db = 'fundod14_fundodobau'; // Nome do banco
-$user = 'fundod14_fundodobau'; // Usuário do banco
-$pass = '4z]8(AHekxVr'; // Senha do banco
+$host = getenv('DB_HOST') ?: 'localhost';
+$db = getenv('DB_NAME') ?: 'fundod14_fundodobau'; // Nome do banco (fallback)
+$user = getenv('DB_USER') ?: 'fundod14_fundodobau'; // Usuário do banco (fallback)
+$pass = getenv('DB_PASS') ?: '4z]8(AHekxVr'; // Senha do banco (fallback)
 $charset = 'utf8mb4';
 
 $dsn = "mysql:host=$host;dbname=$db;charset=$charset";
@@ -27,6 +27,32 @@ try {
     http_response_code(500);
     echo json_encode(['error' => 'Erro ao conectar ao banco de dados: ' . $e->getMessage()]);
     exit;
+}
+
+// Garante que a tabela 'sliders' exista e que 'filmesIds' seja TEXT (compatível com MySQL/MariaDB antigos)
+function ensureSlidersTable($pdo) {
+    // Cria a tabela se não existir com filmesIds como TEXT
+    $pdo->exec("CREATE TABLE IF NOT EXISTS sliders (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        titulo VARCHAR(255) NOT NULL,
+        tipo ENUM('categoria','decada','personalizado') NOT NULL,
+        filtro VARCHAR(50) DEFAULT NULL,
+        filmesIds TEXT DEFAULT NULL,
+        ativo TINYINT(1) DEFAULT 1,
+        createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+
+    // Se por acaso a coluna estiver como JSON, converte para TEXT
+    try {
+        $stmt = $pdo->query("SHOW COLUMNS FROM sliders LIKE 'filmesIds'");
+        $col = $stmt ? $stmt->fetch() : null;
+        if ($col && isset($col['Type']) && stripos($col['Type'], 'json') !== false) {
+            $pdo->exec("ALTER TABLE sliders MODIFY filmesIds TEXT NULL");
+        }
+    } catch (Throwable $e) {
+        // Evita quebrar a API em hosts sem permissão de ALTER, segue execução
+    }
 }
 
 // Função para gerar GUID
@@ -118,17 +144,28 @@ $path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $pathParts = explode('/', trim($path, '/'));
 
 // Rota base da API
-$apiPath = end($pathParts) === 'api-filmes.php' ? '' : 'api-filmes.php/';
+// Tornar dinâmico pelo nome do script atual (ex.: api-filmes.php ou api-filmes2.php)
+$script = basename($_SERVER['SCRIPT_NAME']);
+$apiPath = end($pathParts) === $script ? '' : ($script . '/');
 $endpoint = str_replace($apiPath, '', implode('/', $pathParts));
 
 // Parâmetros GET
 $action = $_GET['action'] ?? '';
 
+// Headers de debug (ajudam a inspecionar roteamento no Network)
+header('X-Method: ' . $method);
+header('X-Endpoint: ' . $endpoint);
+
 // Para requisições POST, verificar se o endpoint está no body
 if ($method === 'POST') {
+    // Quando JSON: endpoint pode vir no corpo
     $input = json_decode(file_get_contents('php://input'), true);
-    if (isset($input['endpoint'])) {
+    if (isset($input['endpoint']) && $input['endpoint']) {
         $endpoint = $input['endpoint'];
+    }
+    // Quando multipart/form-data: endpoint pode vir nos campos do formulário
+    if (isset($_POST['endpoint']) && $_POST['endpoint']) {
+        $endpoint = $_POST['endpoint'];
     }
 }
 
@@ -139,9 +176,73 @@ if ($method === 'OPTIONS') {
 try {
     switch ($method) {
         case 'GET':
+            // Carrossel - listar itens
+            if ($endpoint === 'carrossel') {
+                $stmt = $pdo->prepare("SELECT id, posicao, filmeId, imagemUrl, ativo, createdAt, updatedAt FROM carrossel ORDER BY posicao ASC");
+                $stmt->execute();
+                $items = $stmt->fetchAll();
+                echo json_encode(['success' => true, 'carrossel' => $items]);
+                break;
+            }
+
+            // Sliders - listar todos
+            if ($endpoint === 'sliders') {
+                // Garantir tabela e esquema compatível
+                ensureSlidersTable($pdo);
+
+                $stmt = $pdo->prepare("SELECT id, titulo, tipo, filtro, filmesIds, ativo, createdAt, updatedAt FROM sliders ORDER BY id ASC");
+                $stmt->execute();
+                $sliders = $stmt->fetchAll();
+                foreach ($sliders as &$s) {
+                    $s['filmesIds'] = $s['filmesIds'] ? json_decode($s['filmesIds'], true) : [];
+                }
+                echo json_encode(['success' => true, 'sliders' => $sliders]);
+                break;
+            }
+
             // Listar filmes
             if ($action === 'list') {
-                $stmt = $pdo->query("SELECT * FROM filmes ORDER BY createdAt DESC");
+                // Parâmetros de paginação/busca/ordenação
+                $page = max(1, (int)($_GET['page'] ?? 1));
+                $limit = min(100, max(1, (int)($_GET['limit'] ?? 20)));
+                $q = trim($_GET['q'] ?? '');
+                $sort = $_GET['sort'] ?? 'createdAt';
+                $order = strtolower($_GET['order'] ?? 'desc');
+
+                // Whitelist de ordenação
+                $allowedSort = ['createdAt', 'updatedAt', 'ano', 'nomePortugues', 'nomeOriginal'];
+                if (!in_array($sort, $allowedSort, true)) { $sort = 'createdAt'; }
+                $order = $order === 'asc' ? 'ASC' : 'DESC';
+
+                $where = [];
+                $params = [];
+                if ($q !== '') {
+                    $where[] = '(nomePortugues LIKE ? OR nomeOriginal LIKE ?)';
+                    $like = '%' . $q . '%';
+                    $params[] = $like;
+                    $params[] = $like;
+                }
+                $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+                // Total de registros
+                $stmtCount = $pdo->prepare("SELECT COUNT(*) as total FROM filmes $whereSql");
+                $stmtCount->execute($params);
+                $total = (int)$stmtCount->fetchColumn();
+
+                $offset = ($page - 1) * $limit;
+
+                // Consulta paginada
+                $sql = "SELECT * FROM filmes $whereSql ORDER BY $sort $order LIMIT ? OFFSET ?";
+                $stmt = $pdo->prepare($sql);
+                $bindParams = $params;
+                $bindParams[] = $limit;
+                $bindParams[] = $offset;
+                // Bind manual para LIMIT/OFFSET como inteiros
+                $i = 1;
+                foreach ($params as $p) { $stmt->bindValue($i++, $p, PDO::PARAM_STR); }
+                $stmt->bindValue($i++, (int)$limit, PDO::PARAM_INT);
+                $stmt->bindValue($i++, (int)$offset, PDO::PARAM_INT);
+                $stmt->execute();
                 $filmes = $stmt->fetchAll();
                 
                 // Converter JSON de volta para array
@@ -150,7 +251,15 @@ try {
                     $filme['avaliacoes'] = $filme['avaliacoes'] ? json_decode($filme['avaliacoes'], true) : null;
                 }
                 
-                echo json_encode(['success' => true, 'filmes' => $filmes]);
+                $pages = (int)ceil($total / $limit);
+                echo json_encode([
+                    'success' => true,
+                    'filmes' => $filmes,
+                    'page' => $page,
+                    'limit' => $limit,
+                    'total' => $total,
+                    'pages' => $pages
+                ]);
                 break;
             }
             
@@ -171,9 +280,42 @@ try {
                 }
                 break;
             }
+
+            // (removido) Criar slider estava erroneamente dentro do bloco GET
             
-            // Rota padrão - listar filmes
-            $stmt = $pdo->query("SELECT * FROM filmes ORDER BY createdAt DESC");
+            // Rota padrão - listar filmes com paginação/busca/ordenação
+            $page = max(1, (int)($_GET['page'] ?? 1));
+            $limit = min(100, max(1, (int)($_GET['limit'] ?? 20)));
+            $q = trim($_GET['q'] ?? '');
+            $sort = $_GET['sort'] ?? 'createdAt';
+            $order = strtolower($_GET['order'] ?? 'desc');
+
+            $allowedSort = ['createdAt', 'updatedAt', 'ano', 'nomePortugues', 'nomeOriginal'];
+            if (!in_array($sort, $allowedSort, true)) { $sort = 'createdAt'; }
+            $order = $order === 'asc' ? 'ASC' : 'DESC';
+
+            $where = [];
+            $params = [];
+            if ($q !== '') {
+                $where[] = '(nomePortugues LIKE ? OR nomeOriginal LIKE ?)';
+                $like = '%' . $q . '%';
+                $params[] = $like;
+                $params[] = $like;
+            }
+            $whereSql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+
+            $stmtCount = $pdo->prepare("SELECT COUNT(*) as total FROM filmes $whereSql");
+            $stmtCount->execute($params);
+            $total = (int)$stmtCount->fetchColumn();
+
+            $offset = ($page - 1) * $limit;
+            $sql = "SELECT * FROM filmes $whereSql ORDER BY $sort $order LIMIT ? OFFSET ?";
+            $stmt = $pdo->prepare($sql);
+            $i = 1;
+            foreach ($params as $p) { $stmt->bindValue($i++, $p, PDO::PARAM_STR); }
+            $stmt->bindValue($i++, (int)$limit, PDO::PARAM_INT);
+            $stmt->bindValue($i++, (int)$offset, PDO::PARAM_INT);
+            $stmt->execute();
             $filmes = $stmt->fetchAll();
             
             foreach ($filmes as &$filme) {
@@ -181,11 +323,48 @@ try {
                 $filme['avaliacoes'] = $filme['avaliacoes'] ? json_decode($filme['avaliacoes'], true) : null;
             }
             
-            echo json_encode(['success' => true, 'filmes' => $filmes]);
+            $pages = (int)ceil($total / $limit);
+            echo json_encode([
+                'success' => true,
+                'filmes' => $filmes,
+                'page' => $page,
+                'limit' => $limit,
+                'total' => $total,
+                'pages' => $pages
+            ]);
             break;
             
         case 'PUT':
             $input = json_decode(file_get_contents('php://input'), true);
+            
+            // Sliders - atualizar
+            if (preg_match('/^sliders\/([0-9]+)$/', $endpoint, $m)) {
+                $id = (int)$m[1];
+                if (!isset($input['slider']) || !is_array($input['slider'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Payload inválido: campo slider é obrigatório']);
+                    break;
+                }
+
+                $slider = $input['slider'];
+                $titulo = trim($slider['titulo'] ?? '');
+                $tipo = $slider['tipo'] ?? 'categoria';
+                $filtro = $slider['filtro'] ?? null;
+                $filmesIds = isset($slider['filmesIds']) && is_array($slider['filmesIds']) ? $slider['filmesIds'] : [];
+                $ativo = isset($slider['ativo']) ? (int)$slider['ativo'] : 1;
+
+                if ($titulo === '' || !in_array($tipo, ['categoria','decada','personalizado'], true)) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Campos inválidos para slider']);
+                    break;
+                }
+
+                $stmt = $pdo->prepare("UPDATE sliders SET titulo = ?, tipo = ?, filtro = ?, filmesIds = ?, ativo = ?, updatedAt = NOW() WHERE id = ?");
+                $stmt->execute([$titulo, $tipo, $filtro, json_encode($filmesIds), $ativo, $id]);
+
+                echo json_encode(['success' => true]);
+                break;
+            }
             
             // Atualizar filme
             if ($action === 'update' && isset($_GET['guid'])) {
@@ -269,6 +448,17 @@ try {
                 
                 $stmt = $pdo->prepare("DELETE FROM filmes WHERE GUID = ?");
                 $stmt->execute([$guid]);
+                
+                echo json_encode(['success' => true]);
+                break;
+            }
+            
+            // Deletar slider
+            if (preg_match('/^sliders\/([0-9]+)$/', $endpoint, $matches)) {
+                $id = (int)$matches[1];
+                
+                $stmt = $pdo->prepare("DELETE FROM sliders WHERE id = ?");
+                $stmt->execute([$id]);
                 
                 echo json_encode(['success' => true]);
                 break;
@@ -406,6 +596,153 @@ try {
                 } else {
                     http_response_code(401);
                     echo json_encode(['error' => 'Usuário não autenticado']);
+                }
+                break;
+            }
+
+            // Sliders - criar (POST /sliders)
+            if ($endpoint === 'sliders' && $method === 'POST') {
+                if (!isset($input['slider']) || !is_array($input['slider'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Payload inválido: campo slider é obrigatório']);
+                    break;
+                }
+
+                $slider = $input['slider'];
+
+                // Garantir tabela e esquema compatível
+                ensureSlidersTable($pdo);
+
+                $titulo = trim($slider['titulo'] ?? '');
+                $tipo = $slider['tipo'] ?? 'categoria';
+                $filtro = $slider['filtro'] ?? null;
+                $filmesIds = isset($slider['filmesIds']) && is_array($slider['filmesIds']) ? $slider['filmesIds'] : [];
+                $ativo = isset($slider['ativo']) ? (int)$slider['ativo'] : 1;
+
+                if ($titulo === '' || !in_array($tipo, ['categoria','decada','personalizado'], true)) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Campos inválidos para slider']);
+                    break;
+                }
+
+                try {
+                    $stmt = $pdo->prepare("INSERT INTO sliders (titulo, tipo, filtro, filmesIds, ativo, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
+                    $stmt->execute([$titulo, $tipo, $filtro, json_encode($filmesIds), $ativo]);
+                } catch (Throwable $e) {
+                    http_response_code(500);
+                    echo json_encode(['success' => false, 'error' => 'Falha ao salvar slider', 'detail' => $e->getMessage()]);
+                    break;
+                }
+
+                $id = (int)$pdo->lastInsertId();
+                $stmt = $pdo->prepare("SELECT id, titulo, tipo, filtro, filmesIds, ativo, createdAt, updatedAt FROM sliders WHERE id = ?");
+                $stmt->execute([$id]);
+                $novo = $stmt->fetch();
+                if ($novo) { $novo['filmesIds'] = $novo['filmesIds'] ? json_decode($novo['filmesIds'], true) : []; }
+
+                http_response_code(200);
+                echo json_encode(['success' => true, 'slider' => $novo]);
+                exit;
+            }
+
+            // Upload de imagem do carrossel (multipart form-data)
+            if ($endpoint === 'salvar-imagem-carrossel' && isset($_FILES) && isset($_FILES['imagem'])) {
+                try {
+                    // Tentar detectar pasta existente:
+                    // - public/images/carrossel/
+                    // - public/images/carrosel/
+                    // - images/carrossel/
+                    // - images/carrosel/
+                    $candidates = [
+                        // Prioriza pasta ao lado do script (padrão em public_html)
+                        ['fs' => __DIR__ . '/images/carrossel/',           'public' => '/images/carrossel/'],
+                        ['fs' => __DIR__ . '/images/carrosel/',            'public' => '/images/carrosel/'],
+                        // Fallbacks
+                        ['fs' => __DIR__ . '/../public/images/carrossel/', 'public' => '/images/carrossel/'],
+                        ['fs' => __DIR__ . '/../public/images/carrosel/',  'public' => '/images/carrosel/'],
+                        ['fs' => __DIR__ . '/../images/carrossel/',        'public' => '/images/carrossel/'],
+                        ['fs' => __DIR__ . '/../images/carrosel/',         'public' => '/images/carrosel/'],
+                    ];
+                    $chosen = null;
+                    foreach ($candidates as $cand) {
+                        if (is_dir($cand['fs'])) { $chosen = $cand; break; }
+                    }
+                    if ($chosen === null) {
+                        // Se nenhuma existe, criar a primeira opção
+                        $chosen = $candidates[0];
+                        @mkdir($chosen['fs'], 0775, true);
+                    }
+                    $uploadDir = $chosen['fs'];
+                    $publicBase = $chosen['public'];
+
+                    $file = $_FILES['imagem'];
+                    if ($file['error'] !== UPLOAD_ERR_OK) {
+                        http_response_code(400);
+                        echo json_encode(['error' => 'Falha no upload da imagem']);
+                        break;
+                    }
+
+                    $posicao = isset($_POST['posicao']) ? (int)$_POST['posicao'] : 0;
+                    $nomeFilme = $_POST['nomeFilme'] ?? 'filme';
+
+                    // Slug simples do nome do filme
+                    $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $nomeFilme));
+                    $slug = trim($slug, '-');
+
+                    $ext = pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'jpg';
+                    $basename = "carrossel-{$posicao}-{$slug}.{$ext}";
+                    $destPath = $uploadDir . $basename;
+
+                    if (!move_uploaded_file($file['tmp_name'], $destPath)) {
+                        http_response_code(500);
+                        echo json_encode(['error' => 'Não foi possível salvar a imagem']);
+                        break;
+                    }
+
+                    // Caminho público
+                    $publicPath = rtrim($publicBase, '/') . '/' . $basename;
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'caminho' => $publicPath]);
+                    exit;
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Erro no upload: ' . $e->getMessage()]);
+                }
+                break;
+            }
+
+            // Salvar configuração do carrossel (array de itens)
+            if ($endpoint === 'carrossel' && $method === 'POST') {
+                if (!isset($input['carrossel']) || !is_array($input['carrossel'])) {
+                    http_response_code(400);
+                    echo json_encode(['error' => 'Payload inválido: campo carrossel é obrigatório']);
+                    break;
+                }
+
+                try {
+                    $pdo->beginTransaction();
+                    // Estratégia simples: limpar e inserir
+                    $pdo->exec('DELETE FROM carrossel');
+
+                    $stmt = $pdo->prepare("INSERT INTO carrossel (posicao, filmeId, imagemUrl, ativo, createdAt, updatedAt) VALUES (?, ?, ?, ?, NOW(), NOW())");
+                    foreach ($input['carrossel'] as $item) {
+                        $posicao = (int)($item['posicao'] ?? 0);
+                        $filmeId = $item['filmeId'] ?? ($item['filme_guid'] ?? null);
+                        $imagemUrl = $item['imagemUrl'] ?? null;
+                        $ativo = isset($item['ativo']) ? (int)$item['ativo'] : 1;
+                        if ($filmeId && $imagemUrl) {
+                            $stmt->execute([$posicao, $filmeId, $imagemUrl, $ativo]);
+                        }
+                    }
+
+                    $pdo->commit();
+                    http_response_code(200);
+                    echo json_encode(['success' => true]);
+                    exit;
+                } catch (Exception $e) {
+                    $pdo->rollBack();
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Erro ao salvar carrossel: ' . $e->getMessage()]);
                 }
                 break;
             }
@@ -929,6 +1266,14 @@ try {
             break;
             
         case 'DELETE':
+            // Sliders - remover
+            if (preg_match('/^sliders\/([0-9]+)$/', $endpoint, $m)) {
+                $id = (int)$m[1];
+                $stmt = $pdo->prepare("DELETE FROM sliders WHERE id = ?");
+                $stmt->execute([$id]);
+                echo json_encode(['success' => true]);
+                break;
+            }
             // Remover filme
             if (preg_match('/^filmes\/([^\/]+)$/', $endpoint, $matches)) {
                 $user = getCurrentUser($pdo);

@@ -24,22 +24,36 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
   useEffect(() => {
     async function fetchCarrossel() {
       try {
-        const response = await fetch('http://localhost:8084/api/carrossel');
-        if (response.ok) {
-          const data = await response.json();
-          const carrosselAtivo = data.carrossel.filter((item: CarrosselItem) => item.ativo && item.filmeId && item.imagemUrl);
-          setCarrosselData(carrosselAtivo);
-          
-          // Buscar filmes correspondentes
-          const filmesCarrossel = carrosselAtivo.map((item: CarrosselItem) => {
-            const filme = filmes.find(f => f.GUID === item.filmeId);
-            return filme ? { ...filme, imagemUrl: item.imagemUrl } : null;
-          }).filter(Boolean) as Filme[];
-          
-          setCarrosselFilmes(filmesCarrossel);
+        const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/carrossel');
+        if (!response.ok) {
+          console.warn('Carrossel: resposta não OK', response.status);
+          setCarrosselData([]);
+          setCarrosselFilmes([]);
+          return;
         }
+
+        const data = await response.json().catch(() => ({}));
+        const lista = Array.isArray(data)
+          ? data
+          : (Array.isArray((data as any).carrossel) ? (data as any).carrossel : []);
+
+        const carrosselAtivo = (Array.isArray(lista) ? lista : [])
+          .filter((item: any) => item && item.ativo && item.filmeId && item.imagemUrl) as CarrosselItem[];
+        setCarrosselData(carrosselAtivo);
+
+        // Buscar filmes correspondentes
+        const filmesCarrossel = carrosselAtivo
+          .map((item: CarrosselItem) => {
+            const filme = Array.isArray(filmes) ? filmes.find(f => f.GUID === item.filmeId) : undefined;
+            return filme ? { ...filme, imagemUrl: item.imagemUrl } : null;
+          })
+          .filter(Boolean) as Filme[];
+
+        setCarrosselFilmes(filmesCarrossel);
       } catch (error) {
         console.error('Erro ao carregar carrossel:', error);
+        setCarrosselData([]);
+        setCarrosselFilmes([]);
       }
     }
     fetchCarrossel();
@@ -74,13 +88,15 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
   if (!filmesParaExibir.length) return null;
 
   const filmeAtual = filmesParaExibir[currentSlide];
+  const imgSrc = (filmeAtual as any)?.imagemUrl || (filmeAtual as any)?.capaUrl || (filmeAtual as any)?.posterUrl || '';
+  const categoriasStr = Array.isArray((filmeAtual as any)?.categoria) ? (filmeAtual as any).categoria.join(', ') : '';
 
   return (
     <section className="relative h-[70vh] overflow-hidden">
       {/* Background Image */}
       <div className="absolute inset-0">
         <img 
-          src={filmeAtual.imagemUrl} 
+          src={imgSrc} 
           alt={filmeAtual.nomePortugues}
           className="w-full h-full object-cover"
         />
@@ -113,7 +129,7 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
             </div>
             <div className="flex items-center gap-2">
               <Star className="h-4 w-4 text-vintage-gold" />
-              <span className="font-vintage-body">{filmeAtual.categoria.join(', ')}</span>
+              <span className="font-vintage-body">{categoriasStr}</span>
             </div>
           </div>
 

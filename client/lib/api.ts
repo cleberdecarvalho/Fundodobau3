@@ -10,7 +10,8 @@ const isProduction = import.meta.env.PROD;
 const API_CONFIG = {
   // Desenvolvimento: Backend Node.js/Express
   development: {
-    baseURL: 'http://localhost:3333/api',
+    // Apontar para a API PHP pública (sem backend local)
+    baseURL: 'https://www.fundodobaufilmes.com/api-filmes.php',
     timeout: 10000,
     headers: {
       'Content-Type': 'application/json',
@@ -19,7 +20,8 @@ const API_CONFIG = {
   
   // Produção: Backend PHP/MySQL (Hostgator)
   production: {
-    baseURL: '/api-filmes.php', // Relativo ao domínio
+    // Usar URL absoluta para garantir que funcione em qualquer domínio de deploy
+    baseURL: 'https://www.fundodobaufilmes.com/api-filmes.php',
     timeout: 15000,
     headers: {
       'Content-Type': 'application/json',
@@ -50,7 +52,10 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${this.baseURL}/${endpoint}`.replace(/\/+/g, '/');
+    // Montar URL sem quebrar o protocolo (ex.: não transformar https:// em https:/)
+    const base = this.baseURL.replace(/\/+$/, '');
+    const path = endpoint.replace(/^\/+/, '');
+    const url = `${base}/${path}`;
     
     const config: RequestInit = {
       headers: {

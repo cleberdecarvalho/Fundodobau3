@@ -19,12 +19,12 @@ export default function Index() {
 
         // Organizar filmes por categoria
         const categorias = {
-          'Drama': todosFilmes.filter(f => f.categoria.includes('Drama')),
-          'Romance': todosFilmes.filter(f => f.categoria.includes('Romance')),
-          'Crime': todosFilmes.filter(f => f.categoria.includes('Crime')),
-          'Suspense': todosFilmes.filter(f => f.categoria.includes('Suspense')),
-          'Comédia': todosFilmes.filter(f => f.categoria.includes('Comédia')),
-          'Musical': todosFilmes.filter(f => f.categoria.includes('Musical')),
+          'Drama': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Drama')),
+          'Romance': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Romance')),
+          'Crime': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Crime')),
+          'Suspense': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Suspense')),
+          'Comédia': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Comédia')),
+          'Musical': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Musical')),
         };
         setFilmesPorCategoria(categorias);
       } catch (error) {
@@ -44,10 +44,13 @@ export default function Index() {
   useEffect(() => {
     const carregarSliders = async () => {
       try {
-        const response = await fetch('http://localhost:8084/api/sliders');
+        const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/sliders');
         if (response.ok) {
           const data = await response.json();
-          setSliders(data.sliders);
+          const lista = Array.isArray(data)
+            ? data
+            : (Array.isArray(data?.sliders) ? data.sliders : []);
+          setSliders(lista);
         }
       } catch (error) {
         console.error('Erro ao carregar sliders:', error);
@@ -57,17 +60,18 @@ export default function Index() {
   }, []);
 
   const filmesDestaque = filmes.slice(0, 3);
+  const slidersList: any[] = Array.isArray(sliders) ? sliders : [];
 
   // Função para filtrar filmes baseado no tipo de slider
   const getFilmesDoSlider = (slider: any) => {
     switch (slider.tipo) {
       case 'categoria':
-        return filmes.filter(f => f.categoria.includes(slider.filtro));
+        return filmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes(slider.filtro));
       case 'decada':
-        const decada = slider.filtro;
-        return filmes.filter(f => f.ano && f.ano.toString().startsWith(decada.slice(0, 3)));
+        const decada = String(slider.filtro || '');
+        return filmes.filter(f => f.ano && String(f.ano).startsWith(decada.slice(0, 3)));
       case 'personalizado':
-        return filmes.filter(f => slider.filmesIds.includes(f.GUID));
+        return filmes.filter(f => Array.isArray(slider.filmesIds) && slider.filmesIds.includes(f.GUID));
       default:
         return [];
     }
@@ -94,7 +98,7 @@ export default function Index() {
 
       {/* Sliders Configurados */}
       <div className="space-y-8 py-6">
-        {sliders.map((slider) => {
+        {slidersList.map((slider) => {
           const filmesDoSlider = getFilmesDoSlider(slider);
           if (filmesDoSlider.length === 0) return null;
           
