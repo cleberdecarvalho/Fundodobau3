@@ -8,14 +8,19 @@ interface VideoUploadProps {
   currentEmbedLink?: string;
   filmeName?: string;
   bunnyApiKey?: string;
+  // Quando true, não envia imediatamente: guarda o arquivo e expõe um starter para o pai
+  deferred?: boolean;
+  onRequestUpload?: (start: () => Promise<{ embedLink: string; guid: string }>) => void;
 }
 
-export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLink, filmeName, bunnyApiKey }: VideoUploadProps) {
+export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLink, filmeName, bunnyApiKey, deferred, onRequestUpload }: VideoUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'processing' | 'done' | 'error'>('idle');
   const [uploadMessage, setUploadMessage] = useState('');
+  const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
 
   // Endpoints via backend PHP (sem expor AccessKey)
   const API_BASE = 'https://www.fundodobaufilmes.com/api-filmes.php';
@@ -27,6 +32,25 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
       return v.toString(16);
     });
   };
+
+  // Quando em modo adiado, expor função starter ao pai
+  React.useEffect(() => {
+    if (!deferred) return;
+    if (!onRequestUpload) return;
+    // Se houver arquivo pendente, expõe um starter; senão expõe um starter que rejeita
+    const starter = async () => {
+      if (!pendingVideoFile) throw new Error('Nenhum vídeo selecionado');
+      setIsUploading(true);
+      setUploadProgress(0);
+      setUploadStatus('uploading');
+      const result = await uploadToBunny(pendingVideoFile);
+      onVideoUploaded(result.embedLink, result.guid);
+      setIsUploading(false);
+      setUploadProgress(0);
+      return result;
+    };
+    onRequestUpload(starter);
+  }, [deferred, onRequestUpload, pendingVideoFile]);
 
   const uploadToBunny = async (file: File) => {
 
@@ -181,15 +205,37 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
     setDragActive(false);
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleVideoUpload(e.dataTransfer.files[0]);
+      const file = e.dataTransfer.files[0];
+      if (!file.type.startsWith('video/')) {
+        alert('Por favor, selecione apenas arquivos de vídeo.');
+        return;
+      }
+      if (deferred) {
+        setPendingVideoFile(file);
+        setUploadStatus('idle');
+        setUploadMessage('Vídeo selecionado. Será enviado ao salvar.');
+      } else {
+        handleVideoUpload(file);
+      }
     }
-  }, [filmeName]);
+  }, [filmeName, deferred]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log('handleFileChange chamado', e.target.files);
     if (e.target.files && e.target.files[0]) {
       console.log('Arquivo selecionado:', e.target.files[0].name);
-      handleVideoUpload(e.target.files[0]);
+      const file = e.target.files[0];
+      if (!file.type.startsWith('video/')) {
+        alert('Por favor, selecione apenas arquivos de vídeo.');
+        return;
+      }
+      if (deferred) {
+        setPendingVideoFile(file);
+        setUploadStatus('idle');
+        setUploadMessage('Vídeo selecionado. Será enviado ao salvar.');
+      } else {
+        handleVideoUpload(file);
+      }
     }
   };
 
@@ -235,24 +281,32 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
             <div className="flex items-center space-x-3">
               <Video className="h-4 w-4 text-vintage-gold/70" />
               <span className="text-vintage-cream text-sm font-vintage-body">
-                {currentEmbedLink ? 'Vídeo carregado' : 'Selecionar vídeo'}
+                {currentEmbedLink
+                  ? 'Vídeo carregado'
+                  : pendingVideoFile
+                    ? `Selecionado: ${pendingVideoFile.name}`
+                    : 'Selecionar vídeo'}
               </span>
             </div>
-            <input
-              id="video-file-input"
-              type="file"
-              accept="video/*"
-              onChange={handleFileChange}
-              className="hidden"
-              disabled={isUploading}
-            />
-            <button
-              onClick={() => document.getElementById('video-file-input')?.click()}
-              disabled={isUploading}
-              className="bg-vintage-gold/20 text-vintage-gold hover:bg-vintage-gold hover:text-vintage-black border border-vintage-gold/30 rounded px-3 py-1 text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {currentEmbedLink ? 'Alterar' : 'Escolher'}
-            </button>
+            <div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="video/*"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <Button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                variant="ghost"
+                size="sm"
+                className="text-vintage-gold hover:text-vintage-black hover:bg-vintage-gold"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                {currentEmbedLink ? 'Trocar' : 'Selecionar'}
+              </Button>
+            </div>
           </div>
         )}
       </div>

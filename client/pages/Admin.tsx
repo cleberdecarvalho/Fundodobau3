@@ -48,6 +48,9 @@ function AdminDashboard() {
   const [sliders, setSliders] = useState<any[]>([]);
   const [showSliderModal, setShowSliderModal] = useState(false);
   const [sliderEditando, setSliderEditando] = useState<any>(null);
+  // Starters para upload adiado de vídeo (novo e edição)
+  const startUploadNovoRef = useRef<null | (() => Promise<{ embedLink: string; guid: string }>)>(null);
+  const startUploadEditarRef = useRef<null | (() => Promise<{ embedLink: string; guid: string }>)>(null);
   
   // Controle de scroll da lista horizontal de filmes no Admin
   const listaFilmesRef = useRef<HTMLDivElement | null>(null);
@@ -494,21 +497,35 @@ function AdminDashboard() {
   const handleSalvarFilme = async () => {
     setIsLoading(true);
     try {
+      // Se houver upload adiado de vídeo, executar agora
+      let uploadedGuid: string | undefined;
+      let uploadedEmbed: string | undefined;
+      if (startUploadNovoRef.current) {
+        setUploadStatus('uploading');
+        setUploadMsg('Enviando vídeo...');
+        const result = await startUploadNovoRef.current();
+        uploadedGuid = result.guid;
+        uploadedEmbed = result.embedLink;
+        setUploadStatus('processing');
+        setUploadMsg('Processando vídeo...');
+      }
+
       // Garante embedLink se houver videoGUID
-      let embedLink = novoFilme.embedLink;
-      if (novoFilme.videoGUID && !embedLink) {
-        embedLink = `<iframe src=\"https://iframe.mediadelivery.net/embed/256964/${novoFilme.videoGUID}?autoplay=false&loop=false&muted=false&preload=true&responsive=true\" allowfullscreen=\"true\"></iframe>`;
+      let embedLink = uploadedEmbed || novoFilme.embedLink;
+      if ((uploadedGuid || novoFilme.videoGUID) && !embedLink) {
+        const guidBase = uploadedGuid || novoFilme.videoGUID;
+        embedLink = `<iframe src=\"https://iframe.mediadelivery.net/embed/256964/${guidBase}?autoplay=false&loop=false&muted=false&preload=true&responsive=true\" allowfullscreen=\"true\"></iframe>`;
       }
       // O GUID deve vir do Bunny.net (videoGUID), se não existir, gerar um local
-      const guidFinal = novoFilme.videoGUID || novoFilme.GUID || `filme-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const guidFinal = uploadedGuid || novoFilme.videoGUID || novoFilme.GUID || `filme-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       console.log('GUID final:', guidFinal, 'VideoGUID do Bunny.net:', novoFilme.videoGUID);
       
       const novo = {
         ...novoFilme,
         GUID: guidFinal,
-        videoGUID: novoFilme.videoGUID || guidFinal, // Manter videoGUID se existir
+        videoGUID: uploadedGuid || novoFilme.videoGUID || guidFinal, // Manter videoGUID se existir
         embedLink: embedLink || novoFilme.embedLink,
-        videoStatus: 'Enviando', // Sempre começa como "Enviando" para novos vídeos
+        videoStatus: uploadedGuid ? 'Enviando' : (novoFilme.videoGUID ? 'Enviando' : ''),
         assistencias: 0,
       };
       const guidSalvo = await filmeStorage.addFilme(novo);
@@ -1326,6 +1343,8 @@ function AdminDashboard() {
                       Vídeo do Filme
                     </label>
                     <VideoUpload
+                      deferred
+                      onRequestUpload={(start) => { startUploadNovoRef.current = start; }}
                       onVideoUploaded={(embedLink, guid) => {
                         console.log('VideoUpload callback - GUID:', guid, 'EmbedLink:', embedLink);
                         if (filmeEditando) {
@@ -1574,6 +1593,8 @@ function AdminDashboard() {
                         Vídeo do Filme
                       </label>
                       <VideoUpload
+                        deferred
+                        onRequestUpload={(start) => { startUploadEditarRef.current = start; }}
                         onVideoUploaded={(embedLink, guid) => {
                           console.log('VideoUpload callback - GUID:', guid, 'EmbedLink:', embedLink);
                           setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Enviando' } : null);
@@ -1604,6 +1625,15 @@ function AdminDashboard() {
                         onClick={async () => {
                           try {
                             setIsLoading(true);
+                            // Se houver upload adiado no modo edição, executar agora
+                            if (startUploadEditarRef.current) {
+                              setUploadStatus('uploading');
+                              setUploadMsg('Enviando vídeo...');
+                              const result = await startUploadEditarRef.current();
+                              setFilmeEditando(f => f ? { ...f, videoGUID: result.guid, embedLink: result.embedLink, videoStatus: 'Enviando' } : null);
+                              setUploadStatus('processing');
+                              setUploadMsg('Processando vídeo...');
+                            }
                             const atualizado = { 
                               ...filmeEditando,
                               videoStatus: (filmeEditando.videoGUID && filmeEditando.embedLink) ? 'Processado' : 'Processando' 
