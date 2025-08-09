@@ -109,12 +109,12 @@ function FilmCard({ filme }: FilmCardProps) {
     >
       <Link to={filme.GUID ? `/filme/${filme.GUID}` : '#'}>
         <div className="film-card relative bg-vintage-black/20 rounded-lg overflow-hidden border border-vintage-gold/10">
-          {/* Imagem do Filme */}
+          {/* Imagem do Filme (padronizada com página de Filmes) */}
           <div className="relative overflow-hidden">
             <img
               src={getImageSrc(filme.imagemUrl)}
               alt={filme.nomePortugues}
-              className="w-24 h-36 object-cover flex-shrink-0"
+              className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
               loading="lazy"
             />
             
