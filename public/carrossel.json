@@ -1,0 +1,22 @@
+{
+  "carrossel": [
+    {
+      "posicao": 0,
+      "filmeId": "fb9c4e9d-77f4-4cb8-9732-280db1565a21",
+      "imagemUrl": "/images/carrossel/pos-x-1754704539971.jpg",
+      "ativo": true
+    },
+    {
+      "posicao": 1,
+      "filmeId": "1eaee6e0-1ab8-47cb-8f95-6ed2dc98d135",
+      "imagemUrl": "/images/carrossel/pos-x-1754704556547.jpg",
+      "ativo": true
+    },
+    {
+      "posicao": 2,
+      "filmeId": "ec267d3a-1070-4f59-b43b-f3b4c31781e4",
+      "imagemUrl": "/images/carrossel/pos-x-1754704552009.jpg",
+      "ativo": true
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download, Calendar, Clock, Search, Filter, X as XIcon, FileUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -301,7 +301,7 @@ function AdminDashboard() {
   useEffect(() => {
     async function fetchCarrossel() {
       try {
-        const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/carrossel');
+        const response = await fetch('/api/carrossel');
         if (response.ok) {
           const data = await response.json();
           const fallback = [
@@ -556,11 +556,11 @@ function AdminDashboard() {
         const base64 = e.target?.result as string;
         
         const form = new FormData();
-        form.append('imagem', file);
+        form.append('file', file);
         form.append('nomeFilme', nomeFilme);
         form.append('posicao', String(posicao));
 
-        const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/salvar-imagem-carrossel', {
+        const response = await fetch('/api/carrossel/upload', {
           method: 'POST',
           body: form,
         });
@@ -571,14 +571,14 @@ function AdminDashboard() {
           console.error('Upload carrossel: resposta não-JSON', { status: response.status, text });
         }
 
-        if (!response.ok || !result?.success || !result?.caminho) {
+        if (!response.ok || !result?.success || !result?.imagemUrl) {
           console.error('Falha no upload da imagem do carrossel', { status: response.status, text, result });
           alert(`Falha no upload da imagem (status ${response.status}). Veja o console para detalhes.`);
           return;
         }
 
         const novoCarrossel = [...carrossel];
-        novoCarrossel[posicao].imagemUrl = result.caminho;
+        novoCarrossel[posicao].imagemUrl = result.imagemUrl;
         setCarrossel(novoCarrossel);
       };
       reader.readAsDataURL(file);
@@ -597,7 +597,7 @@ function AdminDashboard() {
           posicao: i.posicao,
           filmeId: i.filmeId,
           imagemUrl: i.imagemUrl,
-          ativo: i.ativo ? 1 : 0,
+          ativo: !!i.ativo,
         }));
 
       // Diagnóstico: mostrar motivos por posição
@@ -623,8 +623,8 @@ function AdminDashboard() {
         return;
       }
 
-      const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/carrossel', {
-        method: 'POST',
+      const response = await fetch('/api/carrossel', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ carrossel: itensValidos }),
       });
@@ -633,11 +633,24 @@ function AdminDashboard() {
       let data: any = null;
       try { data = text ? JSON.parse(text) : null; } catch (e) { /* resposta não-JSON */ }
 
-      if (response.ok && data?.success) {
+      if (response.ok && (data?.success ?? true)) {
         console.log('✅ Carrossel salvo com sucesso:', data);
         alert('Carrossel salvo com sucesso!');
-        // Recarrega carrossel da API
-        await fetchCarrossel();
+        // Atualiza estado local com a resposta do PUT; se não vier, faz GET inline
+        if (Array.isArray(data?.carrossel)) {
+          setCarrossel(data.carrossel);
+        } else {
+          try {
+            const r = await fetch('/api/carrossel', { cache: 'no-store' });
+            if (r.ok) {
+              const j = await r.json();
+              const items = Array.isArray(j?.carrossel) ? j.carrossel : [];
+              setCarrossel(items);
+            }
+          } catch (e) {
+            console.warn('Falha ao recarregar carrossel após salvar:', e);
+          }
+        }
       } else {
         console.error('❌ Erro ao salvar carrossel', { status: response.status, text, data });
         alert(`Erro ao salvar carrossel (status ${response.status}). Veja o console para detalhes.`);

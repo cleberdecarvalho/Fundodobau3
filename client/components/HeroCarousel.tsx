@@ -24,28 +24,28 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
   useEffect(() => {
     async function fetchCarrossel() {
       try {
-        // 1) Tenta carregar de um JSON local (persistência simples)
-        //    Arquivo esperado: client/public/carrossel.json
+        // 1) Tenta carregar da API local (Express) que persiste em public/carrossel.json
+        //    Endpoint: GET /api/carrossel (retorna { carrossel: [...] })
         let data: any = null;
         try {
-          const localResp = await fetch('/carrossel.json', { cache: 'no-store' });
-          if (localResp.ok) {
-            data = await localResp.json().catch(() => ({}));
+          const apiResp = await fetch('/api/carrossel', { cache: 'no-store' });
+          if (apiResp.ok) {
+            data = await apiResp.json().catch(() => ({}));
           }
         } catch (_) {
-          // segue para o remoto
+          // segue para o fallback
         }
 
-        // 2) Se não houver dado local, tenta a API remota existente
+        // 2) Fallback: JSON estático servido de /carrossel.json
         if (!data) {
-          const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/carrossel');
-          if (!response.ok) {
-            console.warn('Carrossel: resposta não OK', response.status);
-            setCarrosselData([]);
-            setCarrosselFilmes([]);
-            return;
+          try {
+            const localResp = await fetch('/carrossel.json', { cache: 'no-store' });
+            if (localResp.ok) {
+              data = await localResp.json().catch(() => ({}));
+            }
+          } catch (_) {
+            // sem dados
           }
-          data = await response.json().catch(() => ({}));
         }
 
         const lista = Array.isArray(data)
@@ -60,9 +60,26 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
         const filmesCarrossel = carrosselAtivo
           .map((item: CarrosselItem) => {
             const filme = Array.isArray(filmes) ? filmes.find(f => f.GUID === item.filmeId) : undefined;
-            return filme ? { ...filme, imagemUrl: item.imagemUrl } : null;
-          })
-          .filter(Boolean) as Filme[];
+            if (filme) {
+              return { ...filme, imagemUrl: item.imagemUrl } as Filme;
+            }
+            // Se o filme não existir na base local, ainda assim criar um slide com a imagem do carrossel
+            // Preenche campos mínimos para evitar erros no render
+            return {
+              GUID: item.filmeId || `carrossel-${item.posicao}`,
+              nomeOriginal: '',
+              nomePortugues: '',
+              ano: '',
+              categoria: [],
+              duracao: '',
+              sinopse: '',
+              imagemUrl: item.imagemUrl || '',
+              assistencias: 0,
+              embedLink: '',
+              videoGUID: '',
+              videoStatus: '',
+            } as unknown as Filme;
+          }) as Filme[];
 
         setCarrosselFilmes(filmesCarrossel);
       } catch (error) {

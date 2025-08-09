@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import path from "path";
 import fs from "fs";
+import multer from "multer";
 import { handleDemo } from "./routes/demo";
 import { Filme } from "@shared/types";
 
@@ -14,10 +15,94 @@ export function createServer() {
   app.use(express.json({ limit: '100mb' }));
   app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
+  // Servir arquivos estáticos da pasta public/
+  const publicDir = path.join(process.cwd(), 'public');
+  if (!fs.existsSync(publicDir)) {
+    fs.mkdirSync(publicDir, { recursive: true });
+  }
+  app.use(express.static(publicDir));
+
   // Example API routes
   app.get("/api/ping", (_req, res) => {
     const ping = process.env.PING_MESSAGE ?? "ping";
     res.json({ message: ping });
+  });
+
+  // ============================
+  // Carrossel Superior - Persistência local
+  // ============================
+  const carrosselJsonPath = path.join(publicDir, 'carrossel.json');
+  const carrosselImagesDir = path.join(publicDir, 'images', 'carrossel');
+  if (!fs.existsSync(carrosselImagesDir)) {
+    fs.mkdirSync(carrosselImagesDir, { recursive: true });
+  }
+
+  // Upload (multipart) de imagem do carrossel
+  const storage = multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, carrosselImagesDir),
+    filename: (req, file, cb) => {
+      const original = file.originalname || 'imagem';
+      const ext = path.extname(original) || '.jpg';
+      const pos = (req.body?.posicao ? String(req.body.posicao) : 'x').replace(/[^0-9]/g, '');
+      const ts = Date.now();
+      cb(null, `pos-${pos || 'x'}-${ts}${ext}`);
+    }
+  });
+  const upload = multer({ storage });
+
+  // GET /api/carrossel - retorna conteúdo do carrossel.json
+  app.get('/api/carrossel', (_req, res) => {
+    try {
+      if (!fs.existsSync(carrosselJsonPath)) {
+        return res.json({ carrossel: [] });
+      }
+      const raw = fs.readFileSync(carrosselJsonPath, 'utf8');
+      const json = raw ? JSON.parse(raw) : { carrossel: [] };
+      // Normaliza estrutura
+      const list = Array.isArray(json?.carrossel) ? json.carrossel : (Array.isArray(json) ? json : []);
+      res.json({ carrossel: list });
+    } catch (err) {
+      console.error('❌ Erro ao ler carrossel.json:', err);
+      res.status(500).json({ success: false, error: 'Erro ao ler carrossel' });
+    }
+  });
+
+  // PUT /api/carrossel - grava carrossel.json
+  app.put('/api/carrossel', (req, res) => {
+    try {
+      const body = req.body || {};
+      const list = Array.isArray(body?.carrossel) ? body.carrossel : [];
+
+      // Validação mínima e ordenação por posicao
+      const normalizado = list
+        .filter((i: any) => i && typeof i.posicao === 'number' && typeof i.filmeId === 'string' && typeof i.imagemUrl === 'string')
+        .map((i: any) => ({
+          posicao: i.posicao,
+          filmeId: i.filmeId,
+          imagemUrl: i.imagemUrl,
+          ativo: !!i.ativo,
+        }))
+        .sort((a: any, b: any) => a.posicao - b.posicao);
+
+      fs.writeFileSync(carrosselJsonPath, JSON.stringify({ carrossel: normalizado }, null, 2));
+      res.json({ success: true, carrossel: normalizado });
+    } catch (err) {
+      console.error('❌ Erro ao gravar carrossel.json:', err);
+      res.status(500).json({ success: false, error: 'Erro ao salvar carrossel' });
+    }
+  });
+
+  // POST /api/carrossel/upload - upload de imagem
+  app.post('/api/carrossel/upload', upload.single('file'), (req, res) => {
+    try {
+      const file = req.file;
+      if (!file) return res.status(400).json({ success: false, error: 'Arquivo ausente (campo "file")' });
+      const publicUrl = `/images/carrossel/${file.filename}`;
+      res.json({ success: true, imagemUrl: publicUrl });
+    } catch (err) {
+      console.error('❌ Erro no upload do carrossel:', err);
+      res.status(500).json({ success: false, error: 'Erro no upload' });
+    }
   });
 
   app.get("/api/demo", handleDemo);
@@ -125,56 +210,13 @@ export function createServer() {
     }
   });
 
-  // POST /api/salvar-imagem-carrossel - Salvar imagem do carrossel
-  app.post("/api/salvar-imagem-carrossel", (req, res) => {
-    try {
-      const { imagemBase64, nomeFilme, posicao } = req.body;
-      
-      if (!imagemBase64 || !nomeFilme || posicao === undefined) {
-        return res.status(400).json({ success: false, error: 'Imagem, nome do filme e posição são obrigatórios' });
-      }
-
-      // Extrair dados base64
-      const matches = imagemBase64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-      if (!matches) {
-        return res.status(400).json({ success: false, error: 'Formato base64 inválido' });
-      }
-
-      const mimeType = matches[1];
-      const base64String = matches[2];
-      
-      // Gerar nome do arquivo para o carrossel
-      const extensao = mimeType.split('/')[1] || 'jpg';
-      const nomeArquivo = `carrossel-${posicao}-${nomeFilme.toLowerCase().replace(/[^a-z0-9]/g, '-')}.${extensao}`;
-      const uploadPath = path.join(process.cwd(), 'public', 'images', 'carrossel');
-      const caminhoArquivo = path.join(uploadPath, nomeArquivo);
-      
-      // Criar diretório se não existir
-      if (!fs.existsSync(uploadPath)) {
-        fs.mkdirSync(uploadPath, { recursive: true });
-      }
-      
-      // Converter base64 para buffer
-      const buffer = Buffer.from(base64String, 'base64');
-      
-      // Salvar arquivo
-      fs.writeFileSync(caminhoArquivo, buffer);
-      
-      console.log('✅ Imagem do carrossel salva:', caminhoArquivo);
-      
-      res.json({ 
-        success: true, 
-        caminho: `/images/carrossel/${nomeArquivo}`,
-        nomeArquivo 
-      });
-    } catch (error) {
-      console.error('❌ Erro ao salvar imagem do carrossel:', error);
-      res.status(500).json({ success: false, error: 'Erro ao salvar imagem do carrossel' });
-    }
+  // POST /api/salvar-imagem-carrossel (LEGADO) - desativado
+  app.post("/api/salvar-imagem-carrossel", (_req, res) => {
+    return res.status(410).json({ success: false, error: 'Rota obsoleta. Utilize /api/carrossel/upload.' });
   });
 
-  // GET /api/carrossel - Obter configuração do carrossel
-  app.get("/api/carrossel", (req, res) => {
+  // GET /api/carrossel-legacy - Obter configuração do carrossel (LEGADO)
+  app.get("/api/carrossel-legacy", (req, res) => {
     try {
       const carrosselPath = path.join(process.cwd(), 'data', 'carrossel.json');
       
@@ -197,8 +239,8 @@ export function createServer() {
     }
   });
 
-  // POST /api/carrossel - Salvar configuração do carrossel
-  app.post("/api/carrossel", (req, res) => {
+  // POST /api/carrossel-legacy - Salvar configuração do carrossel (LEGADO)
+  app.post("/api/carrossel-legacy", (req, res) => {
     try {
       const { carrossel } = req.body;
       
