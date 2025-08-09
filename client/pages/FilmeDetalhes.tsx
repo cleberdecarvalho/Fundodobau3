@@ -6,11 +6,13 @@ import { Filme } from '@shared/types';
 import { filmeStorage } from '../utils/filmeStorage';
 import { avaliacoesStorage, EstatisticasFilme } from '../utils/avaliacoesStorage';
 import { useAuth } from '../contexts/AuthContext';
+import { FilmSlider } from '@/components/FilmSlider';
 
 export default function FilmeDetalhes() {
   const { id } = useParams<{ id: string }>();
   const [filme, setFilme] = useState<Filme | null>(null);
   const [estatisticas, setEstatisticas] = useState<EstatisticasFilme | null>(null);
+  const [recomendados, setRecomendados] = useState<Filme[]>([]);
   const [interacoesUsuario, setInteracoesUsuario] = useState<{
     assistido: boolean;
     quero_ver: boolean;
@@ -58,6 +60,23 @@ export default function FilmeDetalhes() {
     };
     carregarFilme();
   }, [id, isAuthenticated]);
+
+  // Carregar recomendados (mesma(s) categoria(s)) quando o filme estiver disponível
+  useEffect(() => {
+    const carregarRecomendados = async () => {
+      if (!filme) return;
+      try {
+        const todos = await filmeStorage.obterFilmes();
+        const categorias = new Set(filme.categoria || []);
+        const recs = (todos || [])
+          .filter(f => f.GUID !== filme.GUID && (f.categoria || []).some(c => categorias.has(c)));
+        setRecomendados(recs.slice(0, 12));
+      } catch (e) {
+        console.warn('Não foi possível carregar recomendados:', e);
+      }
+    };
+    carregarRecomendados();
+  }, [filme]);
 
   if (!filme) {
     return (
@@ -199,6 +218,11 @@ export default function FilmeDetalhes() {
           </div>
         </div>
       </section>
+
+      {/* Recomendados (slider com mesma categoria) - usa largura padrão da página */}
+      {recomendados.length > 0 && (
+        <FilmSlider titulo="Recomendados" filmes={recomendados} />
+      )}
     </div>
   );
 }
