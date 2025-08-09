@@ -7,13 +7,13 @@ interface VideoUploadProps {
   onVideoUploading?: (guid: string) => void;
   currentEmbedLink?: string;
   filmeName?: string;
-  bunnyApiKey?: string;
   // Quando true, não envia imediatamente: guarda o arquivo e expõe um starter para o pai
   deferred?: boolean;
   onRequestUpload?: (start: () => Promise<{ embedLink: string; guid: string }>) => void;
+  onPendingChange?: (hasPending: boolean) => void;
 }
 
-export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLink, filmeName, bunnyApiKey, deferred, onRequestUpload }: VideoUploadProps) {
+export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLink, filmeName, deferred, onRequestUpload, onPendingChange }: VideoUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [dragActive, setDragActive] = useState(false);
@@ -47,6 +47,8 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
       onVideoUploaded(result.embedLink, result.guid);
       setIsUploading(false);
       setUploadProgress(0);
+      setPendingVideoFile(null);
+      if (onPendingChange) onPendingChange(false);
       return result;
     };
     onRequestUpload(starter);
@@ -214,6 +216,7 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
         setPendingVideoFile(file);
         setUploadStatus('idle');
         setUploadMessage('Vídeo selecionado. Será enviado ao salvar.');
+        if (onPendingChange) onPendingChange(true);
       } else {
         handleVideoUpload(file);
       }
@@ -233,6 +236,7 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
         setPendingVideoFile(file);
         setUploadStatus('idle');
         setUploadMessage('Vídeo selecionado. Será enviado ao salvar.');
+        if (onPendingChange) onPendingChange(true);
       } else {
         handleVideoUpload(file);
       }

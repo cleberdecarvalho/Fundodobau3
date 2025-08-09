@@ -11,9 +11,7 @@ import { VideoUpload } from '../components/VideoUpload';
 import { filmeStorage } from '../utils/filmeStorage';
 
 function AdminDashboard() {
-  // Bunny.net API key (runtime, session only)
-  const [bunnyApiKey, setBunnyApiKey] = useState<string>(() => typeof window !== 'undefined' ? sessionStorage.getItem('bunnyApiKey') || '' : '');
-  const [showApiKey, setShowApiKey] = useState(false);
+  // Bunny.net API key removida do frontend (buscada no backend)
   // Para preview local de imagem
   const [posterPreview, setPosterPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -54,6 +52,9 @@ function AdminDashboard() {
   // Starters para upload adiado de vídeo (novo e edição)
   const startUploadNovoRef = useRef<null | (() => Promise<{ embedLink: string; guid: string }>)>(null);
   const startUploadEditarRef = useRef<null | (() => Promise<{ embedLink: string; guid: string }>)>(null);
+  // Flags para saber se o usuário selecionou novo vídeo (novo/edição)
+  const [hasPendingNovoVideo, setHasPendingNovoVideo] = useState(false);
+  const [hasPendingEditarVideo, setHasPendingEditarVideo] = useState(false);
   
   // Controle de scroll da lista horizontal de filmes no Admin
   const listaFilmesRef = useRef<HTMLDivElement | null>(null);
@@ -437,16 +438,7 @@ function AdminDashboard() {
     fetchStats();
   }, []);
 
-  // Salva a key na sessionStorage sempre que mudar
-  useEffect(() => {
-    if (bunnyApiKey) {
-      sessionStorage.setItem('bunnyApiKey', bunnyApiKey);
-      console.log('API Key salva:', bunnyApiKey.substring(0, 10) + '...');
-    } else {
-      sessionStorage.removeItem('bunnyApiKey');
-      console.log('API Key removida');
-    }
-  }, [bunnyApiKey]);
+  // Removido: persistência de API key em sessionStorage
 
   // Resetar status de upload ao trocar de tab ou editar
   useEffect(() => {
@@ -503,7 +495,7 @@ function AdminDashboard() {
       // Se houver upload adiado de vídeo, executar agora
       let uploadedGuid: string | undefined;
       let uploadedEmbed: string | undefined;
-      if (startUploadNovoRef.current) {
+      if (hasPendingNovoVideo && startUploadNovoRef.current) {
         setUploadStatus('uploading');
         setUploadMsg('Enviando vídeo...');
         const result = await startUploadNovoRef.current();
@@ -1347,9 +1339,9 @@ function AdminDashboard() {
                           setNovoFilme(f => ({ ...f, GUID: guid, videoGUID: guid, videoStatus: 'Processando' }));
                         }
                       }}
-                      currentEmbedLink={filmeEditando?.embedLink || novoFilme.embedLink}
-                      filmeName={filmeEditando?.nomeOriginal || novoFilme.nomeOriginal}
-                      bunnyApiKey={bunnyApiKey}
+                      currentEmbedLink={novoFilme.embedLink}
+                      filmeName={novoFilme.nomeOriginal}
+                      onPendingChange={setHasPendingNovoVideo}
                     />
                     {uploadStatus !== 'idle' && (
                       <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-4 mt-2">
@@ -1580,7 +1572,6 @@ function AdminDashboard() {
                         deferred
                         onRequestUpload={(start) => { startUploadEditarRef.current = start; }}
                         onVideoUploaded={(embedLink, guid) => {
-                          console.log('VideoUpload callback - GUID:', guid, 'EmbedLink:', embedLink);
                           setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Processando' } : null);
                           setUploadStatus('done');
                           setUploadMsg('Vídeo enviado! Monitorando processamento...');
@@ -1591,7 +1582,7 @@ function AdminDashboard() {
                         }}
                         currentEmbedLink={filmeEditando.embedLink}
                         filmeName={filmeEditando.nomeOriginal}
-                        bunnyApiKey={bunnyApiKey}
+                        onPendingChange={setHasPendingEditarVideo}
                       />
                       {uploadStatus !== 'idle' && (
                         <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-4 mt-2">
@@ -1609,8 +1600,8 @@ function AdminDashboard() {
                         onClick={async () => {
                           try {
                             setIsLoading(true);
-                            // Se houver upload adiado no modo edição, executar agora
-                            if (startUploadEditarRef.current) {
+                            // Se o usuário TROCOU o vídeo, executar upload agora
+                            if (hasPendingEditarVideo && startUploadEditarRef.current) {
                               setUploadStatus('uploading');
                               setUploadMsg('Enviando vídeo...');
                               const result = await startUploadEditarRef.current();

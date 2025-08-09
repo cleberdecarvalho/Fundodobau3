@@ -39,10 +39,11 @@ async function salvarImagemComoArquivo(base64Data: string, nomeFilme: string): P
 
     // Montar multipart para o endpoint PHP
     const form = new FormData();
-    // Nome de arquivo sugerido baseado no nome do filme e tipo
+    // Nome de arquivo baseado no nome do filme + timestamp para evitar cache e overwrite
     const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
     const slug = (nomeFilme || 'filme').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-    const filename = `poster-${slug}.${ext}`;
+    const ts = Date.now();
+    const filename = `poster-${slug}-${ts}.${ext}`;
     form.append('imagem', blob, filename);
     form.append('nomeFilme', nomeFilme || 'filme');
 
@@ -266,6 +267,23 @@ export async function updateFilme(id: string | number, filme: Partial<Filme>) {
   const guid = typeof id === 'string' ? id : id.toString();
   console.log('🔄 Atualizando filme com GUID:', guid);
   console.log('🔄 Dados para atualizar:', filme);
+  // Preparar payload mutável
+  const payload: Partial<Filme> = { ...filme };
+
+  // Se a imagem veio como base64, salvar no servidor e substituir por URL/caminho
+  if (payload.imagemUrl && typeof payload.imagemUrl === 'string' && payload.imagemUrl.startsWith('data:')) {
+    try {
+      const nome = (payload.nomePortugues || payload.nomeOriginal || 'filme') as string;
+      console.log('🖼️ Processando imagem (update)...');
+      const caminhoImagem = await salvarImagemComoArquivo(payload.imagemUrl, nome);
+      payload.imagemUrl = caminhoImagem;
+      console.log('✅ Imagem processada (update):', caminhoImagem);
+    } catch (error) {
+      console.error('❌ Erro ao processar imagem no update:', error);
+      // Mantém imagem existente se falhar; opcionalmente poderia definir fallback
+      delete (payload as any).imagemUrl;
+    }
+  }
   
   // Durante desenvolvimento, usar MySQL da Hostgator
   if (import.meta.env.DEV) {
@@ -274,7 +292,7 @@ export async function updateFilme(id: string | number, filme: Partial<Filme>) {
       const response = await fetch(MYSQL_CONFIG.baseURL + `?action=update&guid=${guid}`, {
         method: 'PUT',
         headers: MYSQL_CONFIG.headers,
-        body: JSON.stringify(filme),
+        body: JSON.stringify(payload),
       });
       
       if (response.ok) {
@@ -291,7 +309,7 @@ export async function updateFilme(id: string | number, filme: Partial<Filme>) {
   } else {
     // Em produção, tentar API PHP/MySQL
     try {
-      const response = await api.updateFilme(guid, filme);
+      const response = await api.updateFilme(guid, payload);
       if (response.success) {
         console.log('Filme atualizado via API MySQL com sucesso');
         return true;
@@ -306,7 +324,7 @@ export async function updateFilme(id: string | number, filme: Partial<Filme>) {
     const filmes = await getFilmes();
     const idx = filmes.findIndex(f => f.GUID === id);
     if (idx !== -1) {
-      filmes[idx] = { ...filmes[idx], ...filme };
+      filmes[idx] = { ...filmes[idx], ...payload } as Filme;
       saveFilmes(filmes);
       console.log('Filme atualizado via localStorage com sucesso');
       return true;
