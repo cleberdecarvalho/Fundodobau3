@@ -21,7 +21,7 @@ import { Filme } from '@shared/types';
 import { filmeStorage } from '../utils/filmeStorage';
 import { avaliacoesStorage } from '../utils/avaliacoesStorage';
 
-type TabType = 'painel' | 'quero-assistir' | 'notas' | 'ja-assisti' | 'minha-conta';
+type TabType = 'painel' | 'favoritos' | 'quero-assistir' | 'notas' | 'ja-assisti' | 'minha-conta';
 
 export default function Perfil() {
   const { user, logout } = useAuth();
@@ -236,6 +236,38 @@ export default function Perfil() {
           </div>
         );
 
+      case 'favoritos':
+        return (
+          <div>
+            <h2 className="text-2xl font-bold text-vintage-gold mb-6">Meus Favoritos:</h2>
+            {filmesFavoritos.length === 0 ? (
+              <div className="text-center py-12">
+                <Heart className="h-16 w-16 text-vintage-gold/50 mx-auto mb-4" />
+                <p className="text-vintage-cream/70 mb-2">Nenhum favorito ainda</p>
+                <p className="text-vintage-cream/50 text-sm">
+                  Marque filmes como favorito na página de detalhes do filme.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+                {filmesFavoritos.map((filme) => (
+                  <div key={filme.GUID} className="bg-vintage-black/20 rounded-lg overflow-hidden border border-vintage-gold/10">
+                    <img
+                      src={filme.imagemUrl}
+                      alt={filme.nomePortugues}
+                      className="w-full h-48 object-cover"
+                    />
+                    <div className="p-3">
+                      <p className="font-semibold text-vintage-cream text-sm line-clamp-2">{filme.nomePortugues}</p>
+                      <p className="text-xs text-vintage-cream/60">{filme.ano}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
       case 'notas':
         return (
           <div>
@@ -401,6 +433,18 @@ export default function Perfil() {
               >
                 <Home className="h-5 w-5" />
                 <span>Painel</span>
+              </button>
+
+              <button
+                onClick={() => setActiveTab('favoritos')}
+                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                  activeTab === 'favoritos'
+                    ? 'bg-vintage-gold text-vintage-black'
+                    : 'text-vintage-cream hover:bg-vintage-gold/10'
+                }`}
+              >
+                <Heart className="h-5 w-5" />
+                <span>Favoritos</span>
               </button>
 
               <button

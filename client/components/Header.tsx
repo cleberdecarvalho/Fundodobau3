@@ -99,6 +99,8 @@ export function Header() {
                     </div>
 
                     <div className="space-y-2">
+                      
+
                       <Link
                         to="/perfil"
                         onClick={() => setIsUserMenuOpen(false)}
@@ -106,15 +108,6 @@ export function Header() {
                       >
                         <User className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
                         <span>Meu Perfil</span>
-                      </Link>
-
-                      <Link
-                        to="/favoritos"
-                        onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center space-x-3 w-full text-left px-4 py-3 text-vintage-cream hover:bg-gradient-to-r hover:from-vintage-gold/10 hover:to-yellow-400/10 rounded-lg transition-all duration-200 font-cinema-body group"
-                      >
-                        <Heart className="h-4 w-4 group-hover:scale-110 transition-transform duration-200" />
-                        <span>Meus Favoritos</span>
                       </Link>
 
                       {isAdmin && (

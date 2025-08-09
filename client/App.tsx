@@ -1,7 +1,7 @@
 import "./global.css";
 
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { SearchProvider } from "./contexts/SearchContext";
 import { Header } from "./components/Header";
@@ -12,7 +12,6 @@ import Filmes from "./pages/Filmes";
 import FilmeDetalhes from "./pages/FilmeDetalhes";
 import Auth from "./pages/Auth";
 import Admin from "./pages/Admin";
-import Favoritos from "./pages/Favoritos";
 import Perfil from "./pages/Perfil";
 import NotFound from "./pages/NotFound";
 import PlaceholderPage from "./pages/PlaceholderPage";
@@ -37,7 +36,8 @@ const App = () => (
                         <Perfil />
                       </ProtectedRoute>
                     } />
-                    <Route path="/favoritos" element={<Favoritos />} />
+                    {/* Redireciona rota antiga de favoritos para perfil */}
+                    <Route path="/favoritos" element={<Navigate to="/perfil" replace />} />
                     <Route path="/admin" element={
                       <ProtectedRoute requireAdmin>
                         <Admin />
