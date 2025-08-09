@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download, Calendar, Clock, Search, Filter, X as XIcon, FileUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useFilmes } from '@/contexts/FilmesContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ProtectedRoute } from '../components/ProtectedRoute';
 import { CATEGORIAS, DECADAS } from '@shared/types';
@@ -48,6 +49,8 @@ function AdminDashboard() {
   const [sliders, setSliders] = useState<any[]>([]);
   const [showSliderModal, setShowSliderModal] = useState(false);
   const [sliderEditando, setSliderEditando] = useState<any>(null);
+  // Contexto global de filmes
+  const { refresh } = useFilmes();
   // Starters para upload adiado de vídeo (novo e edição)
   const startUploadNovoRef = useRef<null | (() => Promise<{ embedLink: string; guid: string }>)>(null);
   const startUploadEditarRef = useRef<null | (() => Promise<{ embedLink: string; guid: string }>)>(null);
@@ -525,7 +528,7 @@ function AdminDashboard() {
         GUID: guidFinal,
         videoGUID: uploadedGuid || novoFilme.videoGUID || guidFinal, // Manter videoGUID se existir
         embedLink: embedLink || novoFilme.embedLink,
-        videoStatus: uploadedGuid ? 'Enviando' : (novoFilme.videoGUID ? 'Enviando' : ''),
+        videoStatus: (uploadedGuid || novoFilme.videoGUID) ? 'Processando' : undefined as any,
         assistencias: 0,
       };
       const guidSalvo = await filmeStorage.addFilme(novo);
@@ -536,6 +539,8 @@ function AdminDashboard() {
       // Atualiza lista
       const filmesAtualizados = await filmeStorage.obterFilmes();
       setFilmes(filmesAtualizados);
+      // Sincroniza provedor global para refletir na página Filmes
+      try { await refresh(); } catch {}
     } catch (error) {
       console.error('Erro ao salvar filme:', error);
     }
@@ -1348,9 +1353,9 @@ function AdminDashboard() {
                       onVideoUploaded={(embedLink, guid) => {
                         console.log('VideoUpload callback - GUID:', guid, 'EmbedLink:', embedLink);
                         if (filmeEditando) {
-                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Enviando' } : null);
+                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Processando' } : null);
                         } else {
-                          setNovoFilme(f => ({ ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Enviando' }));
+                          setNovoFilme(f => ({ ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Processando' }));
                         }
                         setUploadStatus('done');
                         setUploadMsg('Vídeo enviado! Monitorando processamento...');
@@ -1358,9 +1363,9 @@ function AdminDashboard() {
                       onVideoUploading={(guid) => {
                         console.log('VideoUpload iniciado - GUID:', guid);
                         if (filmeEditando) {
-                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, videoStatus: 'Enviando' } : null);
+                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, videoStatus: 'Processando' } : null);
                         } else {
-                          setNovoFilme(f => ({ ...f, GUID: guid, videoGUID: guid, videoStatus: 'Enviando' }));
+                          setNovoFilme(f => ({ ...f, GUID: guid, videoGUID: guid, videoStatus: 'Processando' }));
                         }
                       }}
                       currentEmbedLink={filmeEditando?.embedLink || novoFilme.embedLink}
@@ -1597,13 +1602,13 @@ function AdminDashboard() {
                         onRequestUpload={(start) => { startUploadEditarRef.current = start; }}
                         onVideoUploaded={(embedLink, guid) => {
                           console.log('VideoUpload callback - GUID:', guid, 'EmbedLink:', embedLink);
-                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Enviando' } : null);
+                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Processando' } : null);
                           setUploadStatus('done');
                           setUploadMsg('Vídeo enviado! Monitorando processamento...');
                         }}
                         onVideoUploading={(guid) => {
                           console.log('VideoUpload iniciado - GUID:', guid);
-                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, videoStatus: 'Enviando' } : null);
+                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, videoStatus: 'Processando' } : null);
                         }}
                         currentEmbedLink={filmeEditando.embedLink}
                         filmeName={filmeEditando.nomeOriginal}
@@ -1630,7 +1635,7 @@ function AdminDashboard() {
                               setUploadStatus('uploading');
                               setUploadMsg('Enviando vídeo...');
                               const result = await startUploadEditarRef.current();
-                              setFilmeEditando(f => f ? { ...f, videoGUID: result.guid, embedLink: result.embedLink, videoStatus: 'Enviando' } : null);
+                              setFilmeEditando(f => f ? { ...f, videoGUID: result.guid, embedLink: result.embedLink, videoStatus: 'Processando' } : null);
                               setUploadStatus('processing');
                               setUploadMsg('Processando vídeo...');
                             }
@@ -1641,6 +1646,8 @@ function AdminDashboard() {
                             await filmeStorage.updateFilme(atualizado.GUID, atualizado);
                             const filmesAtualizados = await filmeStorage.obterFilmes();
                             setFilmes(filmesAtualizados);
+                            // Sincroniza provedor global para refletir na página Filmes
+                            try { await refresh(); } catch {}
                             setShowEditModal(false);
                             setFilmeEditando(null);
                           } catch (error) {
