@@ -155,12 +155,12 @@ export default function FilmeDetalhes() {
           </div>
 
           {/* Pôster + Infos + Sinopse + Avaliação */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="max-w-[928px] mx-auto grid grid-cols-1 lg:grid-cols-3 gap-2">
             <div className="lg:col-span-1">
               <img
                 src={filme.imagemUrl}
                 alt={filme.nomePortugues}
-                className="w-full max-w-[220px] md:max-w-sm mx-auto lg:mx-0 rounded-lg shadow-2xl"
+                className="w-full max-w-[169px] md:max-w-[273px] mx-auto lg:mx-0 rounded-lg shadow-2xl"
               />
             </div>
 
