@@ -4,6 +4,7 @@ import { User, Menu, X, Film, LogOut, Settings, Heart } from 'lucide-react';
 import { Button } from './ui/button';
 import { SearchBox } from './SearchBox';
 import { useAuth } from '../contexts/AuthContext';
+import { useFilmes } from '../contexts/FilmesContext';
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -12,6 +13,7 @@ export function Header() {
   const { user, logout, isAuthenticated, isAdmin } = useAuth();
   const navigate = useNavigate();
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const { prefetchFilmes } = useFilmes();
 
   // Fechar menu do usuário ao clicar fora
   useEffect(() => {
@@ -51,6 +53,7 @@ export function Header() {
             <Link 
               to="/" 
               className="relative text-vintage-cream hover:text-vintage-gold transition-all duration-300 font-cinema-accent text-lg px-4 py-2 rounded-lg hover:bg-vintage-gold/10 group"
+              onMouseEnter={() => { prefetchFilmes(); }}
             >
               Início
               <span className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-gradient-to-r from-vintage-gold to-yellow-400 group-hover:w-full group-hover:left-0 transition-all duration-300"></span>
@@ -58,6 +61,7 @@ export function Header() {
             <Link 
               to="/filmes" 
               className="relative text-vintage-cream hover:text-vintage-gold transition-all duration-300 font-cinema-accent text-lg px-4 py-2 rounded-lg hover:bg-vintage-gold/10 group"
+              onMouseEnter={() => { prefetchFilmes(); }}
             >
               Filmes
               <span className="absolute bottom-0 left-1/2 w-0 h-0.5 bg-gradient-to-r from-vintage-gold to-yellow-400 group-hover:w-full group-hover:left-0 transition-all duration-300"></span>

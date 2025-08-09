@@ -1,44 +1,32 @@
 import { useState, useEffect } from 'react';
 import { HeroCarousel } from '../components/HeroCarousel';
 import { FilmSlider } from '../components/FilmSlider';
-// Removido import de dados mockados
-import { filmeStorage } from '../utils/filmeStorage';
 import { Filme } from '@shared/types';
+import { useFilmes } from '@/contexts/FilmesContext';
 
 export default function Index() {
-  const [filmes, setFilmes] = useState<Filme[]>([]);
+  const { filmes, isLoading } = useFilmes();
   const [filmesPorCategoria, setFilmesPorCategoria] = useState<Record<string, Filme[]>>({});
   const [sliders, setSliders] = useState<any[]>([]);
 
+  // Recalcular agrupamentos quando filmes mudarem
   useEffect(() => {
-    const carregarFilmes = async () => {
-      try {
-        const todosFilmes = await filmeStorage.obterFilmes();
-        console.log('Filmes carregados:', todosFilmes);
-        setFilmes(todosFilmes);
-
-        // Organizar filmes por categoria
-        const categorias = {
-          'Drama': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Drama')),
-          'Romance': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Romance')),
-          'Crime': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Crime')),
-          'Suspense': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Suspense')),
-          'Comédia': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Comédia')),
-          'Musical': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Musical')),
-        };
-        setFilmesPorCategoria(categorias);
-      } catch (error) {
-        console.error('Erro ao carregar filmes:', error);
-        // Não usar dados mock - mostrar erro real
-        setFilmes([]);
-        setFilmesPorCategoria({});
-        console.error('❌ ERRO: Não foi possível carregar filmes do MySQL da Hostgator');
-        console.error('❌ Detalhes do erro:', error);
-      }
-    };
-
-    carregarFilmes();
-  }, []);
+    try {
+      const todosFilmes = Array.isArray(filmes) ? filmes : [];
+      const categorias = {
+        'Drama': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Drama')),
+        'Romance': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Romance')),
+        'Crime': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Crime')),
+        'Suspense': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Suspense')),
+        'Comédia': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Comédia')),
+        'Musical': todosFilmes.filter(f => Array.isArray(f.categoria) && f.categoria.includes('Musical')),
+      } as Record<string, Filme[]>;
+      setFilmesPorCategoria(categorias);
+    } catch (error) {
+      console.error('Erro ao organizar filmes por categoria:', error);
+      setFilmesPorCategoria({});
+    }
+  }, [filmes]);
 
   // Carregar sliders configurados
   useEffect(() => {
@@ -59,7 +47,7 @@ export default function Index() {
     carregarSliders();
   }, []);
 
-  const filmesDestaque = filmes.slice(0, 3);
+  const filmesDestaque = (filmes || []).slice(0, 3);
   const slidersList: any[] = Array.isArray(sliders) ? sliders : [];
 
   // Função para filtrar filmes baseado no tipo de slider

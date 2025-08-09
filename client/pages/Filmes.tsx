@@ -5,9 +5,8 @@ import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-// Removido import de dados mockados
-import { filmeStorage } from '../utils/filmeStorage';
 import { CATEGORIAS, DECADAS } from '@shared/types';
+import { useFilmes } from '@/contexts/FilmesContext';
 
 export default function Filmes() {
   const [searchParams] = useSearchParams();
@@ -17,6 +16,7 @@ export default function Filmes() {
   const [sortBy, setSortBy] = useState<'nome' | 'ano' | 'assistencias'>('nome');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const { filmes, isLoading } = useFilmes();
 
   // Carregar parâmetros da URL
   useEffect(() => {
@@ -32,21 +32,7 @@ export default function Filmes() {
     }
   }, [searchParams]);
 
-  // Obter filmes do sistema de armazenamento
-  const [filmes, setFilmes] = useState<Filme[]>([]);
-
-  useEffect(() => {
-    const carregarFilmes = async () => {
-      try {
-        const filmesCarregados = await filmeStorage.obterFilmes();
-        setFilmes(filmesCarregados);
-      } catch (error) {
-        console.error('Erro ao carregar filmes:', error);
-        setFilmes([]);
-      }
-    };
-    carregarFilmes();
-  }, []);
+  // filmes agora vem do contexto com cache + SWR
 
   // Filtrar filmes
   const filmesFiltrados = useMemo(() => {
@@ -211,6 +197,7 @@ export default function Filmes() {
                               <img 
                                 src={filme.imagemUrl} 
                                 alt={filme.nomePortugues}
+                                loading="lazy"
                                 className="w-10 h-14 object-cover rounded"
                               />
                               <div className="flex-1 min-w-0">
@@ -329,6 +316,7 @@ function FilmGridCard({ filme }: { filme: any }) {
             src={filme.imagemUrl}
             alt={filme.nomePortugues}
             className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
+            loading="lazy"
           />
           <div className="absolute inset-0 bg-vintage-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
             <div className="bg-vintage-gold rounded-full p-3 transform transition-transform duration-300 hover:scale-110">
@@ -372,6 +360,7 @@ function FilmListCard({ filme }: { filme: any }) {
             src={filme.imagemUrl}
             alt={filme.nomePortugues}
             className="w-24 h-36 object-cover flex-shrink-0"
+            loading="lazy"
           />
           <div className="absolute inset-0 bg-vintage-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
             <div className="bg-vintage-gold rounded-full p-2 transform transition-transform duration-300 hover:scale-110">
