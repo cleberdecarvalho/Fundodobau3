@@ -1348,11 +1348,6 @@ function AdminDashboard() {
                       filmeName={filmeEditando?.nomeOriginal || novoFilme.nomeOriginal}
                       bunnyApiKey={bunnyApiKey}
                     />
-                    {!bunnyApiKey && (
-                      <div className="text-xs text-yellow-300 bg-yellow-900/60 rounded px-2 py-1 mt-1">
-                        Cole a Bunny.net API Key acima para habilitar o upload de vídeo.
-                      </div>
-                    )}
                     {uploadStatus !== 'idle' && (
                       <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-4 mt-2">
                         <span className="text-vintage-gold font-vintage-body">{uploadMsg}</span>
@@ -1558,6 +1553,51 @@ function AdminDashboard() {
                         className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body resize-none"
                         placeholder="Digite a sinopse do filme..."
                       />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-1">
+                        Imagem do Filme (Poster)
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        ref={fileInputRef}
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) handleImageUploadPreview(file);
+                        }}
+                        className="block w-full text-sm text-vintage-cream bg-vintage-black/50 border border-vintage-gold/30 rounded-lg cursor-pointer focus:outline-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="block text-sm font-vintage-serif font-semibold text-vintage-gold mb-1">
+                        Vídeo do Filme
+                      </label>
+                      <VideoUpload
+                        onVideoUploaded={(embedLink, guid) => {
+                          console.log('VideoUpload callback - GUID:', guid, 'EmbedLink:', embedLink);
+                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, embedLink, videoStatus: 'Enviando' } : null);
+                          setUploadStatus('done');
+                          setUploadMsg('Vídeo enviado! Monitorando processamento...');
+                        }}
+                        onVideoUploading={(guid) => {
+                          console.log('VideoUpload iniciado - GUID:', guid);
+                          setFilmeEditando(f => f ? { ...f, GUID: guid, videoGUID: guid, videoStatus: 'Enviando' } : null);
+                        }}
+                        currentEmbedLink={filmeEditando.embedLink}
+                        filmeName={filmeEditando.nomeOriginal}
+                        bunnyApiKey={bunnyApiKey}
+                      />
+                      {uploadStatus !== 'idle' && (
+                        <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-4 mt-2">
+                          <span className="text-vintage-gold font-vintage-body">{uploadMsg}</span>
+                          {filmeEditando.videoGUID && (
+                            <div className="mt-2 text-xs text-vintage-cream">
+                              {/* status extra opcional */}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div className="flex gap-2">
                       <Button
