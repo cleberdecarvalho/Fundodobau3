@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { 
   User, 
-  Heart, 
   Eye, 
   Star, 
   LogOut, 
@@ -21,7 +20,7 @@ import { Filme } from '@shared/types';
 import { filmeStorage } from '../utils/filmeStorage';
 import { avaliacoesStorage } from '../utils/avaliacoesStorage';
 
-type TabType = 'painel' | 'favoritos' | 'quero-assistir' | 'notas' | 'ja-assisti' | 'minha-conta';
+type TabType = 'painel' | 'quero-assistir' | 'notas' | 'ja-assisti' | 'minha-conta';
 
 export default function Perfil() {
   const { user, logout } = useAuth();
@@ -34,7 +33,7 @@ export default function Perfil() {
   // Carregar dados reais do usuário
   const [interacoesUsuario, setInteracoesUsuario] = useState<any[]>([]);
   const [filmesAssistidos, setFilmesAssistidos] = useState<Filme[]>([]);
-  const [filmesFavoritos, setFilmesFavoritos] = useState<Filme[]>([]);
+  // Favoritos desativado: remover estado relacionado
   const [filmesAvaliados, setFilmesAvaliados] = useState<Filme[]>([]);
   const [filmesQueroAssistir, setFilmesQueroAssistir] = useState<Filme[]>([]);
 
@@ -65,20 +64,12 @@ export default function Perfil() {
           
           // Filtrar filmes baseado nas interações
           const assistidos = interacoesArray.filter(i => i.tipo_interacao === 'assistido');
-          const favoritos = interacoesArray.filter(i => i.tipo_interacao === 'favorito');
           const avaliados = interacoesArray.filter(i => i.tipo_interacao === 'avaliacao');
           const queroAssistir = interacoesArray.filter(i => i.tipo_interacao === 'quero_ver');
           
           // Buscar dados dos filmes
           const filmesAssistidosData = await Promise.all(
             assistidos.map(async (interacao) => {
-              const filme = await filmeStorage.obterFilmePorGUID(interacao.filme_guid);
-              return filme;
-            })
-          );
-          
-          const filmesFavoritosData = await Promise.all(
-            favoritos.map(async (interacao) => {
               const filme = await filmeStorage.obterFilmePorGUID(interacao.filme_guid);
               return filme;
             })
@@ -99,7 +90,6 @@ export default function Perfil() {
           );
           
           setFilmesAssistidos(filmesAssistidosData.filter(Boolean));
-          setFilmesFavoritos(filmesFavoritosData.filter(Boolean));
           setFilmesAvaliados(filmesAvaliadosData.filter(Boolean));
           setFilmesQueroAssistir(filmesQueroAssistirData.filter(Boolean));
         } catch (error) {
@@ -153,11 +143,7 @@ export default function Perfil() {
                 <p className="text-2xl font-bold text-vintage-cream">{filmesAssistidos.length}</p>
                 <p className="text-vintage-cream/70 text-sm">Filmes Assistidos</p>
               </div>
-              <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-6 text-center">
-                <Heart className="h-8 w-8 text-vintage-gold mx-auto mb-2" />
-                <p className="text-2xl font-bold text-vintage-cream">{filmesFavoritos.length}</p>
-                <p className="text-vintage-cream/70 text-sm">Favoritos</p>
-              </div>
+              {/* Favoritos desativado */}
               <div className="bg-vintage-black/30 border border-vintage-gold/20 rounded-lg p-6 text-center">
                 <Star className="h-8 w-8 text-vintage-gold mx-auto mb-2" />
                 <p className="text-2xl font-bold text-vintage-cream">{filmesAvaliados.length}</p>
@@ -236,37 +222,7 @@ export default function Perfil() {
           </div>
         );
 
-      case 'favoritos':
-        return (
-          <div>
-            <h2 className="text-2xl font-bold text-vintage-gold mb-6">Meus Favoritos:</h2>
-            {filmesFavoritos.length === 0 ? (
-              <div className="text-center py-12">
-                <Heart className="h-16 w-16 text-vintage-gold/50 mx-auto mb-4" />
-                <p className="text-vintage-cream/70 mb-2">Nenhum favorito ainda</p>
-                <p className="text-vintage-cream/50 text-sm">
-                  Marque filmes como favorito na página de detalhes do filme.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
-                {filmesFavoritos.map((filme) => (
-                  <div key={filme.GUID} className="bg-vintage-black/20 rounded-lg overflow-hidden border border-vintage-gold/10">
-                    <img
-                      src={filme.imagemUrl}
-                      alt={filme.nomePortugues}
-                      className="w-full h-48 object-cover"
-                    />
-                    <div className="p-3">
-                      <p className="font-semibold text-vintage-cream text-sm line-clamp-2">{filme.nomePortugues}</p>
-                      <p className="text-xs text-vintage-cream/60">{filme.ano}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
+      // Favoritos desativado
 
       case 'notas':
         return (
@@ -435,17 +391,7 @@ export default function Perfil() {
                 <span>Painel</span>
               </button>
 
-              <button
-                onClick={() => setActiveTab('favoritos')}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
-                  activeTab === 'favoritos'
-                    ? 'bg-vintage-gold text-vintage-black'
-                    : 'text-vintage-cream hover:bg-vintage-gold/10'
-                }`}
-              >
-                <Heart className="h-5 w-5" />
-                <span>Favoritos</span>
-              </button>
+              {/* Botão Favoritos removido */}
 
               <button
                 onClick={() => setActiveTab('quero-assistir')}

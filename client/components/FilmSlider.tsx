@@ -16,8 +16,11 @@ export function FilmSlider({ titulo, filmes }: FilmSliderProps) {
   const scroll = (direction: 'left' | 'right') => {
     if (!sliderRef.current) return;
 
-    const cardWidth = 224; // largura do card (224px = 56 * 4) + gap
-    const scrollAmount = cardWidth * 4; // rola 4 cards por vez
+    // Medir dinamicamente a largura real do card + gap (space-x-3 ~ 12px)
+    const firstChild = sliderRef.current.children[0] as HTMLElement | undefined;
+    const cardWidth = firstChild?.clientWidth || 224;
+    const gapPx = firstChild ? parseFloat(getComputedStyle(firstChild).marginLeft || '12') : 12;
+    const scrollAmount = (cardWidth + gapPx) * 4; // rola 4 cards por vez
 
     let newPosition = scrollPosition;
     if (direction === 'left') {
@@ -102,87 +105,68 @@ function FilmCard({ filme }: FilmCardProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   return (
-    <div
-      className="flex-shrink-0 w-56 group cursor-pointer"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
+    <div className="flex-shrink-0 w-fit cursor-pointer">
       <Link to={filme.GUID ? `/filme/${filme.GUID}` : '#'}>
-        <div className="film-card relative bg-vintage-black/20 rounded-lg overflow-hidden border border-vintage-gold/10">
-          {/* Imagem do Filme (padronizada com página de Filmes) */}
-          <div className="relative overflow-hidden">
+        <div className="film-card relative rounded-lg overflow-visible">
+          {/* Imagem do Filme (hover só na imagem, sem cortar) */}
+          <div
+            className="relative inline-flex items-center justify-center group rounded-lg overflow-hidden border border-vintage-gold/20"
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
             <img
               src={getImageSrc(filme.imagemUrl)}
               alt={filme.nomePortugues}
-              className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
+              className="h-60 w-auto object-contain block"
               loading="lazy"
             />
             
-            {/* Overlay com botão play */}
-            <div className={`absolute inset-0 bg-vintage-black/60 flex items-center justify-center transition-opacity duration-300 ${
+            {/* Overlay com Play */}
+            <div className={`absolute inset-0 flex items-center justify-center bg-vintage-black/60 transition-opacity duration-300 ${
               isHovered ? 'opacity-100' : 'opacity-0'
             }`}>
-              <div className="bg-vintage-gold rounded-full p-3 transform transition-transform duration-300 hover:scale-110">
-                <Play className="h-6 w-6 text-vintage-black" />
-              </div>
+              <Play className="h-10 w-10 text-vintage-gold" />
             </div>
 
-            {/* Rating Badge */}
-            {filme.avaliacoes && (
-              <div className="absolute top-2 right-2 bg-vintage-black/80 backdrop-blur-sm rounded px-2 py-1">
-                <div className="flex items-center space-x-1">
-                  <Star className="h-3 w-3 text-vintage-gold fill-current" />
-                  <span className="text-xs text-vintage-cream font-vintage-body">
-                    {Math.round(
-                      (filme.avaliacoes.gosteiMuito * 5 + filme.avaliacoes.gostei * 3) /
-                      (filme.avaliacoes.gostei + filme.avaliacoes.gosteiMuito + filme.avaliacoes.naoGostei) * 100
-                    ) / 100}
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* Informações do Filme - Layout Compacto */}
-          <div className="p-3">
+          {/* Meta e Categorias (fora da moldura) */}
+          <div className="w-full px-2 pt-1 pb-0">
             {/* Título Principal */}
-            <h3 className="font-semibold text-base text-vintage-cream mb-1 line-clamp-1 group-hover:text-vintage-gold transition-colors">
+            <h3 className="font-semibold text-lg text-vintage-cream mb-0.5 leading-tight line-clamp-1 transition-colors">
               {filme.nomePortugues}
             </h3>
             
-            {/* Título Original */}
-            <p className="text-sm text-vintage-cream/70 italic mb-2 line-clamp-1">
-              "{filme.nomeOriginal}"
-            </p>
-
-            {/* Meta Info Compacta */}
-            <div className="flex items-center justify-between text-xs text-vintage-cream/60 mb-2">
-              <div className="flex items-center space-x-1">
-                <Calendar className="h-3 w-3" />
-                <span>{filme.ano}</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <Clock className="h-3 w-3" />
-                <span>{filme.duracao}</span>
-              </div>
-            </div>
-
-            {/* Categorias Compactas */}
-            <div className="flex flex-wrap gap-1">
+            {/* Título Original removido por solicitação */}
+          
+          {filme.categoria?.length ? (
+            <div className="flex items-center gap-1 min-w-0 mb-0.5">
               {filme.categoria.slice(0, 3).map((cat, index) => (
                 <span
                   key={`${filme.GUID}-cat-${index}`}
-                  className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded"
+                  className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded whitespace-nowrap"
                 >
                   {cat}
                 </span>
               ))}
               {filme.categoria.length > 3 && (
-                <span className="text-xs text-vintage-cream/50">
+                <span className="text-xs text-vintage-cream/50 whitespace-nowrap">
                   +{filme.categoria.length - 3}
                 </span>
               )}
             </div>
+          ) : null}
+          <div className="flex items-center text-xs text-vintage-cream/60 gap-2 overflow-hidden leading-none">
+            <div className="flex items-center gap-1 whitespace-nowrap">
+              <Calendar className="h-3 w-3" />
+              <span>{filme.ano}</span>
+            </div>
+            <span className="opacity-50">•</span>
+            <div className="flex items-center gap-1 whitespace-nowrap">
+              <Clock className="h-3 w-3" />
+              <span>{filme.duracao}</span>
+            </div>
+          </div>
           </div>
         </div>
       </Link>

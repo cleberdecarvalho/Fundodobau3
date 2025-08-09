@@ -310,13 +310,13 @@ export default function Filmes() {
 
 function FilmGridCard({ filme }: { filme: any }) {
   return (
-    <Link to={`/filme/${filme.GUID}`} className="group">
-      <div className="film-card">
-        <div className="relative overflow-hidden">
+    <Link to={`/filme/${filme.GUID}`}>
+      <div className="film-card w-fit">
+        <div className="relative inline-flex items-center justify-center group rounded-lg overflow-hidden border border-vintage-gold/20 w-56 h-72">
           <img
             src={getImageSrc(filme.imagemUrl)}
             alt={filme.nomePortugues}
-            className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
+            className="w-full h-full object-contain block"
             loading="lazy"
           />
           <div className="absolute inset-0 bg-vintage-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
@@ -325,26 +325,27 @@ function FilmGridCard({ filme }: { filme: any }) {
             </div>
           </div>
         </div>
-        <div className="p-4">
-          <h3 className="font-vintage-serif font-semibold text-lg text-vintage-cream mb-1 line-clamp-1 group-hover:text-vintage-gold transition-colors">
+        <div className="w-full px-3 pt-0 pb-0">
+          <h3 className="font-vintage-serif font-semibold text-xl text-vintage-cream mb-0.5 line-clamp-1 transition-colors">
             {filme.nomePortugues}
           </h3>
-          <p className="text-sm text-vintage-cream/70 font-vintage-body italic mb-2 line-clamp-1">
-            "{filme.nomeOriginal}"
-          </p>
-          <div className="flex items-center justify-between text-xs text-vintage-cream/60 mb-2">
-            <span className="font-vintage-body">{filme.ano}</span>
-            <span className="font-vintage-body">{filme.duracao}</span>
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {filme.categoria.slice(0, 2).map((cat: string, index: number) => (
-              <span
-                key={index}
-                className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body"
-              >
-                {cat}
-              </span>
-            ))}
+          {/* Título Original removido por solicitação */}
+          {filme.categoria?.length ? (
+            <div className="flex items-center gap-1 min-w-0 mb-0.5">
+              {filme.categoria.slice(0, 2).map((cat: string, index: number) => (
+                <span
+                  key={index}
+                  className="text-sm bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body whitespace-nowrap"
+                >
+                  {cat}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <div className="flex items-center text-sm text-vintage-cream/60 gap-2 overflow-hidden">
+            <span className="font-vintage-body whitespace-nowrap">{filme.ano}</span>
+            <span className="opacity-50">•</span>
+            <span className="font-vintage-body whitespace-nowrap">{filme.duracao}</span>
           </div>
         </div>
       </div>
@@ -354,13 +355,13 @@ function FilmGridCard({ filme }: { filme: any }) {
 
 function FilmListCard({ filme }: { filme: any }) {
   return (
-    <Link to={`/filme/${filme.GUID}`} className="group">
+    <Link to={`/filme/${filme.GUID}`}>
       <div className="film-card flex">
-        <div className="relative overflow-hidden">
+        <div className="relative inline-flex items-center justify-center group rounded-lg overflow-hidden border border-vintage-gold/20 flex-shrink-0">
           <img
             src={getImageSrc(filme.imagemUrl)}
             alt={filme.nomePortugues}
-            className="w-24 h-36 object-cover flex-shrink-0"
+            className="h-40 w-auto object-contain block"
             loading="lazy"
           />
           <div className="absolute inset-0 bg-vintage-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
@@ -369,32 +370,33 @@ function FilmListCard({ filme }: { filme: any }) {
             </div>
           </div>
         </div>
-        <div className="p-4 flex-1">
-          <h3 className="font-vintage-serif font-semibold text-xl text-vintage-cream mb-2 group-hover:text-vintage-gold transition-colors">
+        <div className="w-full px-3 pt-0 pb-0 flex-1">
+          <h3 className="font-vintage-serif font-semibold text-2xl text-vintage-cream mb-0.5 transition-colors">
             {filme.nomePortugues}
           </h3>
-          <p className="text-sm text-vintage-cream/70 font-vintage-body italic mb-2">
-            "{filme.nomeOriginal}"
-          </p>
-          <div className="flex items-center space-x-4 text-sm text-vintage-cream/60 mb-3">
-            <div className="flex items-center space-x-1">
+          {/* Título Original removido por solicitação */}
+          {filme.categoria?.length ? (
+            <div className="flex items-center gap-1 min-w-0 mb-0.5">
+              {filme.categoria.map((cat: string, index: number) => (
+                <span
+                  key={index}
+                  className="text-sm bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body whitespace-nowrap"
+                >
+                  {cat}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <div className="flex items-center gap-2 text-base text-vintage-cream/60 overflow-hidden">
+            <div className="flex items-center gap-1 whitespace-nowrap">
               <Calendar className="h-3 w-3" />
               <span className="font-vintage-body">{filme.ano}</span>
             </div>
-            <div className="flex items-center space-x-1">
+            <span className="opacity-50">•</span>
+            <div className="flex items-center gap-1 whitespace-nowrap">
               <Clock className="h-3 w-3" />
               <span className="font-vintage-body">{filme.duracao}</span>
             </div>
-          </div>
-          <div className="flex flex-wrap gap-1 mb-3">
-            {filme.categoria.map((cat: string, index: number) => (
-              <span
-                key={index}
-                className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body"
-              >
-                {cat}
-              </span>
-            ))}
           </div>
           <p className="text-sm text-vintage-cream/80 font-vintage-body line-clamp-2 leading-relaxed">
             {filme.sinopse}

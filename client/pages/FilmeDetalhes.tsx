@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Clock, Calendar, Star, Heart, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { ArrowLeft, Clock, Calendar, Star, ThumbsUp, ThumbsDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Filme } from '@shared/types';
 import { filmeStorage } from '../utils/filmeStorage';
@@ -16,12 +16,10 @@ export default function FilmeDetalhes() {
   const [interacoesUsuario, setInteracoesUsuario] = useState<{
     assistido: boolean;
     quero_ver: boolean;
-    favorito: boolean;
     avaliacao: number | null;
   }>({
     assistido: false,
     quero_ver: false,
-    favorito: false,
     avaliacao: null
   });
   const { user, isAuthenticated } = useAuth();
@@ -47,7 +45,6 @@ export default function FilmeDetalhes() {
               setInteracoesUsuario({
                 assistido: filmeInteracoes.some(i => i.tipo_interacao === 'assistido'),
                 quero_ver: filmeInteracoes.some(i => i.tipo_interacao === 'quero_ver'),
-                favorito: filmeInteracoes.some(i => i.tipo_interacao === 'favorito'),
                 avaliacao: filmeInteracoes.find(i => i.tipo_interacao === 'avaliacao')?.valor || null
               });
             }
@@ -89,7 +86,7 @@ export default function FilmeDetalhes() {
     );
   }
 
-  const handleInteracao = async (tipoInteracao: string, valor?: number) => {
+  const handleInteracao = async (tipoInteracao: 'assistido' | 'quero_ver', valor?: number) => {
     if (!isAuthenticated) {
       navigate('/auth', { state: { from: { pathname: `/filme/${filme!.GUID}` } } });
       return;
@@ -101,7 +98,7 @@ export default function FilmeDetalhes() {
         // Atualizar estado local
         setInteracoesUsuario(prev => ({
           ...prev,
-          [tipoInteracao]: !prev[tipoInteracao as keyof typeof prev]
+          [tipoInteracao]: !prev[tipoInteracao]
         }));
         
         // Recarregar estatísticas

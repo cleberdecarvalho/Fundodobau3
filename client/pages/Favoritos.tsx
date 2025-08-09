@@ -284,13 +284,15 @@ interface FilmCardProps {
 
 function FilmCard({ filme, showRemoveButton, onRemove, removeText }: FilmCardProps) {
   return (
-    <div className="film-card relative group">
+    <div className="film-card relative group w-fit mx-auto">
       <Link to={`/filme/${filme.GUID}`}>
-        <img
-          src={filme.imagemUrl}
-          alt={filme.nomePortugues}
-          className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-105"
-        />
+        <div className="relative inline-flex items-center justify-center rounded-lg overflow-hidden border border-vintage-gold/20">
+          <img
+            src={filme.imagemUrl}
+            alt={filme.nomePortugues}
+            className="h-72 w-auto object-contain block"
+          />
+        </div>
       </Link>
       
       {showRemoveButton && (
@@ -307,30 +309,31 @@ function FilmCard({ filme, showRemoveButton, onRemove, removeText }: FilmCardPro
 
       <div className="p-4">
         <Link to={`/filme/${filme.GUID}`}>
-          <h3 className="font-vintage-serif font-semibold text-lg text-vintage-cream mb-2 line-clamp-1 group-hover:text-vintage-gold transition-colors">
+          <h3 className="font-vintage-serif font-semibold text-xl text-vintage-cream mb-2 line-clamp-1 group-hover:text-vintage-gold transition-colors">
             {filme.nomePortugues}
           </h3>
         </Link>
         
-        <p className="text-sm text-vintage-cream/70 font-vintage-body italic mb-3 line-clamp-1">
-          "{filme.nomeOriginal}"
-        </p>
+        {/* Título Original removido por solicitação */}
 
-        <div className="flex items-center justify-between text-xs text-vintage-cream/60 mb-3">
+        <div className="flex items-center text-sm text-vintage-cream/60 mb-1 gap-2">
           <span className="font-vintage-body">{filme.ano}</span>
+          <span className="opacity-50">•</span>
           <span className="font-vintage-body">{filme.duracao}</span>
         </div>
 
-        <div className="flex flex-wrap gap-1">
-          {filme.categoria.slice(0, 2).map((cat: string, index: number) => (
-            <span
-              key={index}
-              className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body"
-            >
-              {cat}
-            </span>
-          ))}
-        </div>
+        {filme.categoria?.length ? (
+          <div className="flex flex-wrap gap-1">
+            {filme.categoria.slice(0, 2).map((cat: string, index: number) => (
+              <span
+                key={index}
+                className="text-sm bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body"
+              >
+                {cat}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );
