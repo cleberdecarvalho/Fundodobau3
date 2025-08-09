@@ -1088,11 +1088,26 @@ function AdminDashboard() {
                   <div key={filme.GUID || filme.id || Math.random()} className="flex-shrink-0 w-56 film-card relative bg-vintage-black/20 rounded-lg overflow-hidden border border-vintage-gold/10">
                     {/* Imagem do Filme */}
                     <div className="relative overflow-hidden">
-                      <img 
-                        src={filme.imagemUrl || 'https://images.pexels.com/photos/22483588/pexels-photo-22483588.jpeg'} 
-                        alt={filme.nomePortugues || filme.nomeOriginal || 'Filme'} 
-                        className="w-full h-72 object-cover transition-transform duration-300 hover:scale-105" 
-                      />
+                      {(() => {
+                        const raw = (filme.imagemUrl || '').trim();
+                        let src = raw;
+                        if (!raw) {
+                          src = '/images/filmes/default.jpg';
+                        } else if (/^(https?:)?\/\//i.test(raw) || raw.startsWith('data:') || raw.startsWith('/')) {
+                          // já é absoluta, data URL ou root-relative
+                          src = raw;
+                        } else {
+                          // garantir root-relative
+                          src = '/' + raw.replace(/^\.?\//, '');
+                        }
+                        return (
+                          <img
+                            src={src}
+                            alt={filme.nomePortugues || filme.nomeOriginal || 'Filme'}
+                            className="w-full h-72 object-cover transition-transform duration-300 hover:scale-105"
+                          />
+                        );
+                      })()}
                       
                       {/* Overlay com botões de ação */}
                       <div className="absolute inset-0 bg-vintage-black/60 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-300">
