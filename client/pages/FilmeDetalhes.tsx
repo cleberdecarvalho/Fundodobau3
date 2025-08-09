@@ -194,36 +194,7 @@ export default function FilmeDetalhes() {
                 </p>
               </div>
 
-              {/* Avaliação por estrelas abaixo da sinopse */}
-              <div className="border-t border-vintage-gold/20 pt-4 mb-8">
-                <p className="text-sm font-vintage-serif font-semibold text-vintage-gold mb-3 text-left">
-                  {isAuthenticated ? 'Sua Avaliação' : 'Avalie'}
-                </p>
-                {isAuthenticated ? (
-                  <div className="flex justify-start space-x-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        onClick={() => handleAvaliacao(star)}
-                        className={`p-1 rounded transition-all duration-300 ${
-                          interacoesUsuario.avaliacao && interacoesUsuario.avaliacao >= star
-                            ? 'text-vintage-gold'
-                            : 'text-vintage-cream/30 hover:text-vintage-gold/50'
-                        }`}
-                        title={`${star} estrela${star > 1 ? 's' : ''}`}
-                      >
-                        <Star className="h-5 w-5" fill={interacoesUsuario.avaliacao && interacoesUsuario.avaliacao >= star ? 'currentColor' : 'none'} />
-                      </button>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex justify-start space-x-1">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <Star key={star} className="h-5 w-5 text-vintage-cream/30" />
-                    ))}
-                  </div>
-                )}
-              </div>
+              {/* Avaliação oculta temporariamente. Reativar futuramente. */}
             </div>
           </div>
         </div>
