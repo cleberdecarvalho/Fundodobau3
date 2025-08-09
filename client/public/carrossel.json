@@ -1,0 +1,22 @@
+{
+  "carrossel": [
+    {
+      "posicao": 1,
+      "filmeId": "GUID-EXEMPLO-1",
+      "imagemUrl": "/hero/hero1.jpg",
+      "ativo": true
+    },
+    {
+      "posicao": 2,
+      "filmeId": "GUID-EXEMPLO-2",
+      "imagemUrl": "/hero/hero2.jpg",
+      "ativo": true
+    },
+    {
+      "posicao": 3,
+      "filmeId": "GUID-EXEMPLO-3",
+      "imagemUrl": "/hero/hero3.jpg",
+      "ativo": false
+    }
+  ]
+}

@@ -24,15 +24,30 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
   useEffect(() => {
     async function fetchCarrossel() {
       try {
-        const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/carrossel');
-        if (!response.ok) {
-          console.warn('Carrossel: resposta não OK', response.status);
-          setCarrosselData([]);
-          setCarrosselFilmes([]);
-          return;
+        // 1) Tenta carregar de um JSON local (persistência simples)
+        //    Arquivo esperado: client/public/carrossel.json
+        let data: any = null;
+        try {
+          const localResp = await fetch('/carrossel.json', { cache: 'no-store' });
+          if (localResp.ok) {
+            data = await localResp.json().catch(() => ({}));
+          }
+        } catch (_) {
+          // segue para o remoto
         }
 
-        const data = await response.json().catch(() => ({}));
+        // 2) Se não houver dado local, tenta a API remota existente
+        if (!data) {
+          const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php/carrossel');
+          if (!response.ok) {
+            console.warn('Carrossel: resposta não OK', response.status);
+            setCarrosselData([]);
+            setCarrosselFilmes([]);
+            return;
+          }
+          data = await response.json().catch(() => ({}));
+        }
+
         const lista = Array.isArray(data)
           ? data
           : (Array.isArray((data as any).carrossel) ? (data as any).carrossel : []);
@@ -61,35 +76,52 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
 
   // Auto-play do carousel
   useEffect(() => {
-    if (carrosselFilmes.length === 0) return;
-    
+    const total = carrosselFilmes.length > 0 ? carrosselFilmes.length : (Array.isArray(filmes) ? filmes.length : 0);
+    if (total === 0) return;
+
     const interval = setInterval(() => {
-      setCurrentSlide((prev) => (prev + 1) % carrosselFilmes.length);
+      setCurrentSlide((prev) => (prev + 1) % total);
     }, 5000);
 
     return () => clearInterval(interval);
-  }, [carrosselFilmes.length]);
+  }, [carrosselFilmes.length, Array.isArray(filmes) ? filmes.length : 0]);
+
+  // Garante que o índice atual esteja sempre dentro do intervalo quando a lista muda
+  useEffect(() => {
+    const total = carrosselFilmes.length > 0 ? carrosselFilmes.length : (Array.isArray(filmes) ? filmes.length : 0);
+    if (total === 0) { setCurrentSlide(0); return; }
+    setCurrentSlide((prev) => Math.min(prev, Math.max(0, total - 1)));
+  }, [carrosselFilmes.length, Array.isArray(filmes) ? filmes.length : 0]);
 
   const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % carrosselFilmes.length);
+    const total = carrosselFilmes.length > 0 ? carrosselFilmes.length : (Array.isArray(filmes) ? filmes.length : 0);
+    if (total === 0) return;
+    setCurrentSlide((prev) => (prev + 1) % total);
   };
 
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + carrosselFilmes.length) % carrosselFilmes.length);
+    const total = carrosselFilmes.length > 0 ? carrosselFilmes.length : (Array.isArray(filmes) ? filmes.length : 0);
+    if (total === 0) return;
+    setCurrentSlide((prev) => (prev - 1 + total) % total);
   };
 
   const goToSlide = (index: number) => {
-    setCurrentSlide(index);
+    const total = carrosselFilmes.length > 0 ? carrosselFilmes.length : (Array.isArray(filmes) ? filmes.length : 0);
+    if (total === 0) return;
+    const clamped = Math.max(0, Math.min(index, total - 1));
+    setCurrentSlide(clamped);
   };
 
   // Se não há filmes no carrossel, usar filmes normais como fallback
   const filmesParaExibir = carrosselFilmes.length > 0 ? carrosselFilmes : filmes;
-  
-  if (!filmesParaExibir.length) return null;
 
-  const filmeAtual = filmesParaExibir[currentSlide];
-  const imgSrc = (filmeAtual as any)?.imagemUrl || (filmeAtual as any)?.capaUrl || (filmeAtual as any)?.posterUrl || '';
-  const categoriasStr = Array.isArray((filmeAtual as any)?.categoria) ? (filmeAtual as any).categoria.join(', ') : '';
+  if (!Array.isArray(filmesParaExibir) || filmesParaExibir.length === 0) return null;
+
+  // Protege o índice para evitar undefined
+  const safeIndex = Math.min(currentSlide, filmesParaExibir.length - 1);
+  const filmeAtual = filmesParaExibir[safeIndex] as any;
+  const imgSrc = filmeAtual?.imagemUrl || filmeAtual?.capaUrl || filmeAtual?.posterUrl || '';
+  const categoriasStr = Array.isArray(filmeAtual?.categoria) ? filmeAtual.categoria.join(', ') : '';
 
   return (
     <section className="relative h-[70vh] overflow-hidden">
@@ -109,23 +141,23 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
         <div className="max-w-2xl">
           {/* Título */}
                           <h1 className="text-5xl md:text-6xl font-bold text-vintage-cream mb-4">
-            {filmeAtual.nomePortugues}
+            {filmeAtual?.nomePortugues ?? ''}
           </h1>
           
           {/* Título Original */}
           <p className="text-xl md:text-2xl font-vintage-body text-vintage-gold mb-4 italic">
-            "{filmeAtual.nomeOriginal}"
+            "{filmeAtual?.nomeOriginal ?? ''}"
           </p>
 
           {/* Meta Info */}
           <div className="flex flex-wrap items-center gap-6 mb-6 text-vintage-cream/80">
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-vintage-gold" />
-              <span className="font-vintage-body">{filmeAtual.ano}</span>
+              <span className="font-vintage-body">{filmeAtual?.ano ?? ''}</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4 text-vintage-gold" />
-              <span className="font-vintage-body">{filmeAtual.duracao}</span>
+              <span className="font-vintage-body">{filmeAtual?.duracao ?? ''}</span>
             </div>
             <div className="flex items-center gap-2">
               <Star className="h-4 w-4 text-vintage-gold" />
@@ -135,18 +167,18 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
 
           {/* Sinopse */}
           <p className="text-lg font-vintage-body text-vintage-cream/90 mb-8 leading-relaxed line-clamp-3">
-            {filmeAtual.sinopse}
+            {filmeAtual?.sinopse ?? ''}
           </p>
 
           {/* Ações */}
           <div className="flex flex-wrap gap-4">
-            <Link to={`/filme/${filmeAtual.GUID}`}>
+            <Link to={`/filme/${filmeAtual?.GUID ?? ''}`}>
               <Button className="btn-vintage text-lg px-8 py-4">
                 <Play className="h-5 w-5 mr-2" />
                 Assistir Agora
               </Button>
             </Link>
-            <Link to={`/filme/${filmeAtual.GUID}`}>
+            <Link to={`/filme/${filmeAtual?.GUID ?? ''}`}>
               <Button 
                 variant="outline"
                 className="bg-transparent border-vintage-gold/50 text-vintage-cream hover:bg-vintage-gold hover:text-vintage-black transition-all duration-300 text-lg px-8 py-4"
