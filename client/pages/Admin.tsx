@@ -851,28 +851,7 @@ function AdminDashboard() {
     <ProtectedRoute requireAdmin={true}>
       <div className="min-h-screen py-8">
         <div className="container mx-auto px-4">
-          {/* Campo de API key Bunny.net */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-2">
-            <div className="flex items-center gap-2">
-              <label className="text-vintage-gold font-semibold text-sm">Bunny.net API Key:</label>
-              <input
-                type={showApiKey ? 'text' : 'password'}
-                value={bunnyApiKey}
-                onChange={e => setBunnyApiKey(e.target.value)}
-                placeholder="Cole sua Bunny.net API Key aqui"
-                className="bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream placeholder-vintage-cream/50 focus:border-vintage-gold focus:outline-none font-vintage-body w-64"
-                autoComplete="off"
-              />
-              <button
-                type="button"
-                onClick={() => setShowApiKey(v => !v)}
-                className="text-xs text-vintage-gold underline ml-1"
-              >
-                {showApiKey ? 'Ocultar' : 'Mostrar'}
-              </button>
-            </div>
-
-          </div>
+          {/* Campo de API key Bunny.net removido da UI */}
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-4xl md:text-5xl font-bold text-vintage-gold mb-4">

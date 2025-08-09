@@ -4,7 +4,7 @@
 
 **Dilema Original:**
 - ✅ Projeto React bem estruturado
-- ✅ Funcionalidades dinâmicas (usuários, favoritos, avaliações)
+- ✅ Funcionalidades dinâmicas (usuários, avaliações)
 - ❌ Conflito entre MySQL dinâmico e deploy estático
 - ❌ Hostgator não suporta Node.js
 
@@ -75,7 +75,7 @@ fundodobau/
 - **API RESTful** completa
 - **Autenticação** com sessions
 - **CRUD** completo de filmes
-- **Funcionalidades** de usuário (favoritos, avaliações)
+- **Funcionalidades** de usuário (avaliações)
 
 ### 3. Banco MySQL
 - **Estrutura normalizada** com relacionamentos
@@ -107,7 +107,6 @@ fundodobau/
 - Marcar filmes como assistidos
 - Lista de filmes para assistir
 - Sistema de avaliações
-- Favoritos
 
 ### ✅ Busca e Filtros
 - Busca por texto (nome, sinopse)

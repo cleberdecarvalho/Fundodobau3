@@ -138,7 +138,6 @@ hostgator/              # PHP (produção)
 
 ### **Funcionalidades Planejadas**
 - [ ] Sistema de avaliações
-- [ ] Listas de favoritos
 - [ ] Histórico de visualizações
 - [ ] Recomendações personalizadas
 - [ ] Comentários de usuários

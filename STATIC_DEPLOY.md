@@ -89,7 +89,6 @@ dist/
 - **Página Inicial**: http://localhost:3000/
 - **Catálogo**: http://localhost:3000/filmes
 - **Detalhes do Filme**: http://localhost:3000/filme/[GUID]
-- **Favoritos**: http://localhost:3000/favoritos
 - **Admin**: http://localhost:3000/admin
 
 ### API
