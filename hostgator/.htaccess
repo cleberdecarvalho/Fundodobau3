@@ -1,0 +1,8 @@
+# Permitir PATH_INFO após arquivos .php (ex: /api-filmes.php/bunny/videos/123)
+AcceptPathInfo On
+
+# Opcional: aumentar limites de request para uploads maiores (ajuste conforme necessário)
+# php_value post_max_size 512M
+# php_value upload_max_filesize 512M
+# php_value max_input_time 300
+# php_value max_execution_time 300

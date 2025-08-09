@@ -519,18 +519,12 @@ function AdminDashboard() {
         throw new Error('Filme não encontrado');
       }
 
-      // Se tem videoGUID, deletar do Bunny.net primeiro
-      if (filmeParaDeletar.videoGUID && bunnyApiKey) {
+      // Se tem videoGUID, deletar do Bunny via backend PHP (sem expor API Key)
+      if (filmeParaDeletar.videoGUID) {
         try {
-          console.log('Deletando vídeo do Bunny.net:', filmeParaDeletar.videoGUID);
-          console.log('API Key:', bunnyApiKey.substring(0, 10) + '...');
-          
-          const deleteResponse = await fetch(`https://video.bunnycdn.com/library/256964/videos/${filmeParaDeletar.videoGUID}`, {
+          console.log('Deletando vídeo via PHP:', filmeParaDeletar.videoGUID);
+          const deleteResponse = await fetch(`https://www.fundodobaufilmes.com/api-filmes.php/bunny/videos/${filmeParaDeletar.videoGUID}`, {
             method: 'DELETE',
-            headers: {
-              'AccessKey': bunnyApiKey,
-              'Content-Type': 'application/json',
-            },
           });
 
           console.log('Status da resposta:', deleteResponse.status);
@@ -544,13 +538,12 @@ function AdminDashboard() {
             console.error('Resposta do erro:', errorText);
           }
         } catch (bunnyError) {
-          console.error('❌ Erro ao deletar do Bunny.net:', bunnyError);
+          console.error('❌ Erro ao deletar do Bunny via PHP:', bunnyError);
           // Continua mesmo se falhar no Bunny.net
         }
       } else {
-        console.log('⚠️ Não foi possível deletar do Bunny.net:', {
+        console.log('⚠️ Não foi possível deletar do Bunny:', {
           temVideoGUID: !!filmeParaDeletar.videoGUID,
-          temApiKey: !!bunnyApiKey,
           videoGUID: filmeParaDeletar.videoGUID
         });
       }

@@ -17,9 +17,8 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'uploading' | 'processing' | 'done' | 'error'>('idle');
   const [uploadMessage, setUploadMessage] = useState('');
 
-  // Configurações do Bunny.net
-  const BUNNY_LIBRARY_ID = '256964'; // Substituir pela sua biblioteca
-  const BUNNY_API_KEY = bunnyApiKey || import.meta.env.VITE_BUNNY_API_KEY || '';
+  // Endpoints via backend PHP (sem expor AccessKey)
+  const API_BASE = 'https://www.fundodobaufilmes.com/api-filmes.php';
 
   const generateGUID = () => {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
@@ -30,9 +29,6 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
   };
 
   const uploadToBunny = async (file: File) => {
-    if (!BUNNY_API_KEY) {
-      throw new Error('API Key do Bunny.net não configurada');
-    }
 
     const fileName = filmeName ? 
       filmeName.toLowerCase().replace(/[^a-z0-9]/g, '-') :
@@ -40,24 +36,14 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
 
     try {
       setUploadStatus('uploading');
-      setUploadMessage('Criando vídeo no Bunny.net...');
+      setUploadMessage('Criando vídeo...');
       setUploadProgress(10);
 
-      // 1. Criar vídeo no Bunny.net
-      const createResponse = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos`, {
+      // 1) Criar vídeo via PHP
+      const createResponse = await fetch(`${API_BASE}/bunny/videos`, {
         method: 'POST',
-        headers: {
-          'AccessKey': BUNNY_API_KEY,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          title: fileName,
-          description: `Filme: ${filmeName || 'Sem título'}`,
-          metadata: {
-            filme: filmeName || 'Sem título',
-            uploadedAt: new Date().toISOString()
-          }
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', fileName })
       });
 
       if (!createResponse.ok) {
@@ -66,7 +52,7 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
       }
 
       const videoData = await createResponse.json();
-      const videoId = videoData.guid;
+      const videoId = videoData.videoGUID || videoData.guid;
       console.log('GUID do Bunny.net:', videoId);
       
       // Notificar que o upload começou com o GUID
@@ -74,22 +60,29 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
         onVideoUploading(videoId);
       }
 
-      setUploadMessage('Fazendo upload do arquivo...');
+      setUploadMessage('Enviando arquivo...');
       setUploadProgress(30);
 
-      // 2. Upload do arquivo
-      const uploadResponse = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {
+      // 2) Upload do arquivo via proxy PHP (fallback usando query para evitar PATH_INFO 404)
+      const uploadResponse = await fetch(`${API_BASE}?endpoint=bunny/videos/${videoId}`, {
         method: 'PUT',
         headers: {
-          'AccessKey': BUNNY_API_KEY,
-          'Content-Type': 'application/octet-stream'
+          'Content-Type': 'application/octet-stream',
+          // Fallback: alguns hosts ignoram a query em PUT; enviamos também via header
+          'X-Endpoint': `bunny/videos/${videoId}`
         },
         body: file
       });
 
       if (!uploadResponse.ok) {
-        const errorData = await uploadResponse.json();
-        throw new Error(`Erro no upload: ${errorData.message || uploadResponse.statusText}`);
+        let msg = uploadResponse.statusText;
+        try {
+          const errorData = await uploadResponse.json();
+          msg = errorData?.error || errorData?.message || msg;
+        } catch (e) {
+          try { msg = await uploadResponse.text(); } catch {}
+        }
+        throw new Error(`Erro no upload: ${msg}`);
       }
 
       setUploadProgress(70);
@@ -103,23 +96,19 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
       while (!processingComplete && attempts < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, 10000)); // 10 segundos
 
-        const statusResponse = await fetch(`https://video.bunnycdn.com/library/${BUNNY_LIBRARY_ID}/videos/${videoId}`, {
-          headers: {
-            'AccessKey': BUNNY_API_KEY
-          }
-        });
+        const statusResponse = await fetch(`${API_BASE}/bunny/videos/${videoId}`);
 
         if (statusResponse.ok) {
           const statusData = await statusResponse.json();
-          
-          if (statusData.status === 'encoded') {
+          const status = (statusData && statusData.status) || (statusData && statusData.videoStatus);
+          if (status === 'Processado') {
             processingComplete = true;
             setUploadProgress(100);
             setUploadMessage('Vídeo processado com sucesso!');
-          } else if (statusData.status === 'failed') {
+          } else if (status === 'failed' || status === 'erro') {
             throw new Error('Falha no processamento do vídeo');
           } else {
-            setUploadMessage(`Processando... (${statusData.status})`);
+            setUploadMessage(`Processando... (${status || 'aguardando'})`);
             setUploadProgress(70 + (attempts * 1));
           }
         }
@@ -133,7 +122,9 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
       }
 
       // 4. Gerar embed link
-      const embedLink = `<iframe src="https://iframe.mediadelivery.net/embed/${BUNNY_LIBRARY_ID}/${videoId}?autoplay=false&loop=false&muted=false&preload=true&responsive=true" allowfullscreen="true"></iframe>`;
+      // 4) Usar embedLink retornado pelo PHP, ou montar manualmente se vier vazio
+      const embedLink = (videoData.embedLink as string) ||
+        `<iframe src="https://iframe.mediadelivery.net/embed/256964/${videoId}?autoplay=false&loop=false&muted=false&preload=true&responsive=true" allowfullscreen="true"></iframe>`;
       
       setUploadStatus('done');
       setUploadMessage(processingComplete ? 'Upload concluído!' : 'Upload enviado! Processamento em background.');
@@ -154,11 +145,6 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
     if (!file || !file.type.startsWith('video/')) {
       console.error('Tipo de arquivo inválido:', file.type);
       alert('Por favor, selecione apenas arquivos de vídeo.');
-      return;
-    }
-
-    if (!BUNNY_API_KEY) {
-      alert('Por favor, configure a API Key do Bunny.net no painel admin.');
       return;
     }
 
@@ -197,7 +183,7 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       handleVideoUpload(e.dataTransfer.files[0]);
     }
-  }, [filmeName, BUNNY_API_KEY]);
+  }, [filmeName]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     console.log('handleFileChange chamado', e.target.files);
@@ -262,7 +248,7 @@ export function VideoUpload({ onVideoUploaded, onVideoUploading, currentEmbedLin
             />
             <button
               onClick={() => document.getElementById('video-file-input')?.click()}
-              disabled={!BUNNY_API_KEY || isUploading}
+              disabled={isUploading}
               className="bg-vintage-gold/20 text-vintage-gold hover:bg-vintage-gold hover:text-vintage-black border border-vintage-gold/30 rounded px-3 py-1 text-xs transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {currentEmbedLink ? 'Alterar' : 'Escolher'}

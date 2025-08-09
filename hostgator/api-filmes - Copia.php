@@ -2,11 +2,10 @@
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
-header('Access-Control-Allow-Headers: Content-Type, Authorization, Cache-Control, Pragma, Expires, X-Endpoint');
+header('Access-Control-Allow-Headers: Content-Type, Authorization, Cache-Control, Pragma, Expires');
 header('Cache-Control: no-cache, no-store, must-revalidate');
 header('Pragma: no-cache');
 header('Expires: 0');
-header('X-App-Version: 2025-08-09-02');
 
 // Configuração do banco
 $host = getenv('DB_HOST') ?: 'localhost';
@@ -29,24 +28,6 @@ try {
     echo json_encode(['error' => 'Erro ao conectar ao banco de dados: ' . $e->getMessage()]);
     exit;
 }
-
-// Endpoint rápido de verificação de versão
-if (isset($_GET['action']) && $_GET['action'] === 'version') {
-    echo json_encode(['ok' => true, 'version' => '2025-08-09-02']);
-    exit;
-}
-
-// ===== Utilitário simples de log para diagnóstico no servidor =====
-function fdb_log($lines) {
-    try {
-        $f = __DIR__ . '/bunny_upload_debug.log';
-        $ts = date('Y-m-d H:i:s');
-        if (is_array($lines)) { $lines = json_encode($lines, JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE); }
-        @file_put_contents($f, "[$ts] " . $lines . "\n", FILE_APPEND);
-    } catch (Throwable $e) { /* ignora */ }
-}
-
-// Headers de debug serão definidos mais abaixo, após resolver método/endpoint
 
 // Garante que a tabela 'sliders' exista e que 'filmesIds' seja TEXT (compatível com MySQL/MariaDB antigos)
 function ensureSlidersTable($pdo) {
@@ -159,8 +140,7 @@ function register($pdo, $nome, $email, $senha) {
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
-$rawUri = $_SERVER['REQUEST_URI'] ?? '';
-$path = parse_url($rawUri, PHP_URL_PATH);
+$path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $pathParts = explode('/', trim($path, '/'));
 
 // Rota base da API
@@ -172,32 +152,9 @@ $endpoint = str_replace($apiPath, '', implode('/', $pathParts));
 // Parâmetros GET
 $action = $_GET['action'] ?? '';
 
-// Permitir forçar o endpoint via query (?endpoint=... ) para QUALQUER método
-if (isset($_GET['endpoint']) && $_GET['endpoint']) {
-    $endpoint = $_GET['endpoint'];
-}
-// Fallback adicional: permitir header X-Endpoint (ex.: quando a query é perdida em PUT)
-if (isset($_SERVER['HTTP_X_ENDPOINT']) && $_SERVER['HTTP_X_ENDPOINT']) {
-    $endpoint = $_SERVER['HTTP_X_ENDPOINT'];
-}
-// Debug: refletir o header recebido
-header('X-Received-X-Endpoint: ' . (isset($_SERVER['HTTP_X_ENDPOINT']) ? (string)$_SERVER['HTTP_X_ENDPOINT'] : ''));
-
-// Normalização do endpoint vindo de query/header/body
-$endpoint = urldecode((string)$endpoint);
-$endpoint = trim($endpoint);
-$endpoint = ltrim($endpoint, '/');
-
-// Log de início de request
-fdb_log([
-    'phase' => 'start',
-    'method' => $method,
-    'rawUri' => ($rawUri ?? ''),
-    'endpoint' => $endpoint,
-    'queryEndpoint' => ($_GET['endpoint'] ?? ''),
-    'xEndpoint' => ($_SERVER['HTTP_X_ENDPOINT'] ?? ''),
-    'contentType' => ($_SERVER['CONTENT_TYPE'] ?? ($_SERVER['HTTP_CONTENT_TYPE'] ?? '')),
-]);
+// Headers de debug (ajudam a inspecionar roteamento no Network)
+header('X-Method: ' . $method);
+header('X-Endpoint: ' . $endpoint);
 
 // Para requisições POST, verificar se o endpoint está no body
 if ($method === 'POST') {
@@ -216,141 +173,9 @@ if ($method === 'OPTIONS') {
     exit;
 }
 
-// ============================
-// Utilitários Bunny (chave no MySQL)
-// ============================
-// Ajuste estes valores conforme necessário
-if (!defined('BUNNY_LIBRARY_ID')) {
-    define('BUNNY_LIBRARY_ID', '256964'); // confirme seu libraryId
-}
-if (!defined('BUNNY_AES_KEY')) {
-    define('BUNNY_AES_KEY', 'mu8Xz!3rPqKu8Xz!3rPqKu8Xz!3rPqK-2025-Prod'); // a MESMA usada no AES_ENCRYPT do INSERT
-}
-// Permitir relaxar verificação SSL em ambientes de hosting compartilhado
-if (!defined('BUNNY_CURL_RELAX_SSL')) {
-    define('BUNNY_CURL_RELAX_SSL', true);
-}
-
-/**
- * Lê a Bunny API Key descriptografando a última linha da tabela bunny.
- */
-function fdb_get_bunny_key(PDO $pdo): string {
-    try {
-        // Aceitar tanto VARBINARY puro quanto HEX string
-        $sql = "SELECT 
-            AES_DECRYPT(
-                CASE WHEN codigo REGEXP '^[0-9A-Fa-f]+' THEN UNHEX(codigo) ELSE codigo END,
-                ?
-            ) AS k
-        FROM bunny ORDER BY id DESC LIMIT 1";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([BUNNY_AES_KEY]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        if (!$row || !isset($row['k']) || $row['k'] === null) return '';
-        $key = $row['k'];
-        if (!is_string($key)) { $key = (string)$key; }
-        return trim($key);
-    } catch (Throwable $e) {
-        return '';
-    }
-}
-
-/**
- * Realiza requisição à Bunny Stream API.
- */
-function fdb_bunny_request(string $method, string $path, string $accessKey, ?array $body = null): array {
-    $base = 'https://video.bunnycdn.com/library';
-    $url = rtrim($base, '/') . '/' . rawurlencode(BUNNY_LIBRARY_ID) . '/' . ltrim($path, '/');
-    $headers = [
-        'AccessKey: ' . $accessKey,
-        'Content-Type: application/json',
-        'Accept: application/json',
-    ];
-
-    // Preferir cURL em hosts que bloqueiam URL fopen
-    if (function_exists('curl_init')) {
-        $ch = curl_init($url);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        if ($body !== null) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($body));
-        }
-        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-        if (BUNNY_CURL_RELAX_SSL) {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        } else {
-            curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-            curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-        }
-        $resp = curl_exec($ch);
-        $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        $err = curl_error($ch);
-        curl_close($ch);
-        $json = is_string($resp) ? json_decode($resp, true) : null;
-        return ['status' => $status, 'body' => $json, 'raw' => $resp, 'curl_error' => $err];
-    }
-
-    // Fallback: file_get_contents
-    $opts = [
-        'http' => [
-            'method' => $method,
-            'header' => implode("\r\n", $headers) . "\r\n",
-            'ignore_errors' => true,
-        ]
-    ];
-    if ($body !== null) {
-        $opts['http']['content'] = json_encode($body);
-    }
-    $ctx = stream_context_create($opts);
-    $resp = @file_get_contents($url, false, $ctx);
-    $status = 0;
-    if (isset($http_response_header[0]) && preg_match('#HTTP/\\d+\.\\d+\\s+(\\d{3})#', $http_response_header[0], $m)) {
-        $status = (int)$m[1];
-    }
-    $json = null;
-    if ($resp !== false) {
-        $json = json_decode($resp, true);
-    }
-    return ['status' => $status, 'body' => $json, 'raw' => $resp];
-}
-
-/**
- * Monta o iframe de embed para um GUID fornecido
- */
-function fdb_embed_iframe(string $videoGUID): string {
-    $src = "https://iframe.mediadelivery.net/embed/" . rawurlencode(BUNNY_LIBRARY_ID) . "/" . rawurlencode($videoGUID) . "?autoplay=false&loop=false&muted=false&preload=true&responsive=true";
-    return '<iframe src="' . htmlspecialchars($src, ENT_QUOTES) . '" allowfullscreen="true"></iframe>';
-}
-
 try {
     switch ($method) {
         case 'GET':
-            // Bunny - obter status de vídeo por GUID
-            if (preg_match('/^bunny\\/videos\\/([A-Za-z0-9\-]+)$/', $endpoint, $m)) {
-                $guid = $m[1];
-                $key = fdb_get_bunny_key($pdo);
-                if (!$key) {
-                    http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => 'Bunny API Key not found']);
-                    break;
-                }
-                $r = fdb_bunny_request('GET', 'videos/' . $guid, $key, null);
-                if ($r['status'] >= 200 && $r['status'] < 300 && is_array($r['body'])) {
-                    $status = 'Processando';
-                    if (!empty($r['body']['status']) && (int)$r['body']['status'] === 4) {
-                        $status = 'Processado';
-                    } elseif (!empty($r['body']['transcodingStatus']) && strtolower($r['body']['transcodingStatus']) === 'finished') {
-                        $status = 'Processado';
-                    }
-                    echo json_encode(['success' => true, 'videoGUID' => $guid, 'status' => $status, 'bunny' => $r['body']]);
-                    break;
-                }
-                http_response_code($r['status'] ?: 502);
-                echo json_encode(['success' => false, 'error' => 'Bunny status failed', 'details' => $r['body'] ?: $r['raw'], 'curl_error' => ($r['curl_error'] ?? null)]);
-                break;
-            }
             // Carrossel - listar itens
             if ($endpoint === 'carrossel') {
                 $stmt = $pdo->prepare("SELECT id, posicao, filmeId, imagemUrl, ativo, createdAt, updatedAt FROM carrossel ORDER BY posicao ASC");
@@ -510,77 +335,6 @@ try {
             break;
             
         case 'PUT':
-            // Logs iniciais para PUT
-            $contentTypeHeader = $_SERVER['CONTENT_TYPE'] ?? ($_SERVER['HTTP_CONTENT_TYPE'] ?? '');
-            fdb_log(['phase' => 'postput-enter', 'endpoint' => $endpoint, 'contentType' => $contentTypeHeader]);
-
-            // Upload de vídeo para Bunny via proxy binário
-            if (preg_match('/^bunny\\/videos\\/([A-Za-z0-9\-]+)$/', $endpoint, $m)) {
-                $guid = $m[1];
-                $key = fdb_get_bunny_key($pdo);
-                if (!$key) {
-                    http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => 'Bunny API Key not found']);
-                    break;
-                }
-
-                $base = 'https://video.bunnycdn.com/library';
-                $url = rtrim($base, '/') . '/' . rawurlencode(BUNNY_LIBRARY_ID) . '/videos/' . rawurlencode($guid);
-
-                $status = 0; $resp = null; $err = null;
-                if (function_exists('curl_init')) {
-                    $ch = curl_init($url);
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
-                    curl_setopt($ch, CURLOPT_HTTPHEADER, [
-                        'AccessKey: ' . $key,
-                        'Content-Type: application/octet-stream'
-                    ]);
-                    // Atenção: isto faz buffer em memória; avaliar streaming se necessário
-                    $rawBody = file_get_contents('php://input');
-                    curl_setopt($ch, CURLOPT_POSTFIELDS, $rawBody);
-                    curl_setopt($ch, CURLOPT_TIMEOUT, 3600);
-                    if (BUNNY_CURL_RELAX_SSL) {
-                        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-                    } else {
-                        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-                        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-                    }
-                    $resp = curl_exec($ch);
-                    $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-                    $err = curl_error($ch);
-                    curl_close($ch);
-                } else {
-                    // Fallback com stream context (pode não suportar grandes uploads)
-                    $rawBody = file_get_contents('php://input');
-                    $opts = [
-                        'http' => [
-                            'method' => 'PUT',
-                            'header' => "AccessKey: " . $key . "\r\nContent-Type: application/octet-stream\r\n",
-                            'content' => $rawBody,
-                            'ignore_errors' => true,
-                            'timeout' => 3600,
-                        ]
-                    ];
-                    $ctx = stream_context_create($opts);
-                    $resp = @file_get_contents($url, false, $ctx);
-                    if (isset($http_response_header[0]) && preg_match('#HTTP/\\d+\.\\d+\\s+(\\d{3})#', $http_response_header[0], $mm)) {
-                        $status = (int)$mm[1];
-                    }
-                }
-
-                fdb_log(['phase' => 'put-match', 'guid' => $guid, 'status' => $status, 'curl_error' => $err]);
-                if ($status >= 200 && $status < 300) {
-                    echo json_encode(['success' => true, 'videoGUID' => $guid, 'status' => $status]);
-                } else {
-                    http_response_code($status ?: 502);
-                    echo json_encode(['success' => false, 'error' => 'Upload failed', 'status' => $status, 'raw' => $resp, 'curl_error' => $err]);
-                }
-                break;
-            }
-
-            // Para demais PUTs, interpretar JSON do corpo
             $input = json_decode(file_get_contents('php://input'), true);
             
             // Sliders - atualizar
@@ -672,49 +426,11 @@ try {
                 break;
             }
             
-            // Log de 404 para diagnóstico
-            fdb_log([
-                'phase' => '404',
-                'method' => $method,
-                'endpoint' => $endpoint,
-                'queryEndpoint' => ($_GET['endpoint'] ?? ''),
-                'xEndpoint' => ($_SERVER['HTTP_X_ENDPOINT'] ?? ''),
-                'contentType' => ($_SERVER['CONTENT_TYPE'] ?? ($_SERVER['HTTP_CONTENT_TYPE'] ?? '')),
-                'rawUri' => ($rawUri ?? ''),
-            ]);
             http_response_code(404);
-            echo json_encode([
-                'error' => 'Endpoint não encontrado',
-                'details' => [
-                    'method' => $method,
-                    'endpoint' => $endpoint,
-                    'queryEndpoint' => ($_GET['endpoint'] ?? ''),
-                    'xEndpoint' => ($_SERVER['HTTP_X_ENDPOINT'] ?? ''),
-                    'contentType' => ($_SERVER['CONTENT_TYPE'] ?? ($_SERVER['HTTP_CONTENT_TYPE'] ?? '')),
-                    'rawUri' => ($rawUri ?? ''),
-                ]
-            ]);
+            echo json_encode(['error' => 'Endpoint não encontrado']);
             break;
             
         case 'DELETE':
-            // Bunny - deletar vídeo por GUID
-            if (preg_match('/^bunny\\/videos\\/([A-Za-z0-9\-]+)$/', $endpoint, $m)) {
-                $guid = $m[1];
-                $key = fdb_get_bunny_key($pdo);
-                if (!$key) {
-                    http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => 'Bunny API Key not found']);
-                    break;
-                }
-                $r = fdb_bunny_request('DELETE', 'videos/' . $guid, $key, null);
-                if ($r['status'] >= 200 && $r['status'] < 300) {
-                    echo json_encode(['success' => true]);
-                    break;
-                }
-                http_response_code($r['status'] ?: 502);
-                echo json_encode(['success' => false, 'error' => 'Bunny delete failed', 'details' => $r['body'] ?: $r['raw'], 'curl_error' => ($r['curl_error'] ?? null)]);
-                break;
-            }
             // Deletar filme
             if ($action === 'delete' && isset($_GET['guid'])) {
                 $guid = $_GET['guid'];
@@ -754,124 +470,7 @@ try {
             
         case 'POST':
         case 'PUT':
-            // Ler JSON somente quando apropriado, para não consumir corpo binário de upload
-            $contentTypeHeader = $_SERVER['CONTENT_TYPE'] ?? ($_SERVER['HTTP_CONTENT_TYPE'] ?? '');
-            $isJson = stripos($contentTypeHeader, 'application/json') !== false;
-            $input = $isJson ? (json_decode(file_get_contents('php://input'), true) ?: []) : [];
-            // Diagnóstico: log de entrada no case POST/PUT
-            fdb_log(['phase' => 'postput-enter', 'method' => $method, 'endpoint' => $endpoint, 'isJson' => $isJson, 'contentType' => $contentTypeHeader]);
-            
-            // Bunny - upload de arquivo via proxy seguro (PUT binário)
-            // Torna a checagem mais permissiva: aceita qualquer endpoint que inicie com 'bunny/videos/'
-            if ($method === 'PUT' && !$isJson && (strpos($endpoint, 'bunny/videos/') === 0)) {
-                $guid = basename($endpoint);
-                if (!preg_match('/^[A-Za-z0-9\-]{8,}$/', $guid)) {
-                    http_response_code(400);
-                    echo json_encode(['success' => false, 'error' => 'Invalid GUID format', 'endpoint' => $endpoint, 'guid' => $guid]);
-                    break;
-                }
-                fdb_log(['phase' => 'put-match', 'guid' => $guid, 'endpoint' => $endpoint]);
-                $key = fdb_get_bunny_key($pdo);
-                if (!$key) {
-                    http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => 'Bunny API Key not found']);
-                    break;
-                }
-                // Repassar o corpo binário e Content-Type
-                $binary = file_get_contents('php://input');
-                $ct = $contentTypeHeader ?: 'application/octet-stream';
-                $base = 'https://video.bunnycdn.com/library';
-                $url = rtrim($base, '/') . '/' . rawurlencode(BUNNY_LIBRARY_ID) . '/videos/' . rawurlencode($guid);
-                $headers = [
-                    'AccessKey: ' . $key,
-                    'Content-Type: ' . $ct,
-                    'Accept: application/json',
-                ];
-                if (function_exists('curl_init')) {
-                    $ch = curl_init($url);
-                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'PUT');
-                    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-                    curl_setopt($ch, CURLOPT_POSTFIELDS, $binary);
-                    curl_setopt($ch, CURLOPT_TIMEOUT, 0); // upload pode demorar
-                    if (BUNNY_CURL_RELAX_SSL) {
-                        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-                        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-                    } else {
-                        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-                        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-                    }
-                    $resp = curl_exec($ch);
-                    $status = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-                    $err = curl_error($ch);
-                    curl_close($ch);
-                    http_response_code($status ?: 200);
-                    if ($status >= 200 && $status < 300) {
-                        echo json_encode(['success' => true]);
-                    } else {
-                        echo json_encode(['success' => false, 'error' => 'Bunny upload failed', 'curl_error' => $err, 'details' => $resp]);
-                    }
-                } else {
-                    $opts = [
-                        'http' => [
-                            'method' => 'PUT',
-                            'header' => implode("\r\n", $headers) . "\r\n",
-                            'content' => $binary,
-                            'ignore_errors' => true,
-                        ]
-                    ];
-                    $ctx = stream_context_create($opts);
-                    $resp = @file_get_contents($url, false, $ctx);
-                    $status = 0;
-                    if (isset($http_response_header[0]) && preg_match('#HTTP/\\d+\.\\d+\\s+(\\d{3})#', $http_response_header[0], $mm)) {
-                        $status = (int)$mm[1];
-                    }
-                    http_response_code($status ?: 200);
-                    if ($status >= 200 && $status < 300) {
-                        echo json_encode(['success' => true]);
-                    } else {
-                        echo json_encode(['success' => false, 'error' => 'Bunny upload failed', 'details' => $resp]);
-                    }
-                }
-                break;
-            }
-            
-            // Bunny - criar/registrar vídeo
-            if ($method === 'POST' && $endpoint === 'bunny/videos') {
-                $key = fdb_get_bunny_key($pdo);
-                if (!$key) {
-                    http_response_code(500);
-                    echo json_encode(['success' => false, 'error' => 'Bunny API Key not found']);
-                    break;
-                }
-                $action = $input['action'] ?? 'create';
-                if ($action === 'register') {
-                    $guid = trim((string)($input['videoGUID'] ?? ''));
-                    if (!$guid) {
-                        http_response_code(400);
-                        echo json_encode(['success' => false, 'error' => 'videoGUID required for register']);
-                        break;
-                    }
-                    echo json_encode(['success' => true, 'videoGUID' => $guid, 'embedLink' => fdb_embed_iframe($guid)]);
-                    break;
-                }
-                // create
-                $fileName = trim((string)($input['fileName'] ?? 'video.mp4'));
-                $r = fdb_bunny_request('POST', 'videos', $key, ['title' => $fileName ?: 'video.mp4']);
-                if ($r['status'] >= 200 && $r['status'] < 300 && isset($r['body']['guid'])) {
-                    $guid = $r['body']['guid'];
-                    echo json_encode([
-                        'success' => true,
-                        'videoGUID' => $guid,
-                        'embedLink' => fdb_embed_iframe($guid),
-                        'bunny' => $r['body']
-                    ]);
-                    break;
-                }
-                http_response_code($r['status'] ?: 502);
-                echo json_encode(['success' => false, 'error' => 'Bunny create failed', 'details' => $r['body'] ?: $r['raw'], 'curl_error' => ($r['curl_error'] ?? null)]);
-                break;
-            }
+            $input = json_decode(file_get_contents('php://input'), true);
             
             // Autenticação
             if ($endpoint === 'auth/login') {
