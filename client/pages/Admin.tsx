@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download, Calendar, Clock, Search, Filter, X as XIcon, FileUp } from 'lucide-react';
+import { Plus, Edit, Trash2, Eye, Users, Film, BarChart3, Upload, Save, X, Download, Calendar, Clock, Search, Filter, X as XIcon, FileUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ProtectedRoute } from '../components/ProtectedRoute';
@@ -48,6 +48,18 @@ function AdminDashboard() {
   const [sliders, setSliders] = useState<any[]>([]);
   const [showSliderModal, setShowSliderModal] = useState(false);
   const [sliderEditando, setSliderEditando] = useState<any>(null);
+  
+  // Controle de scroll da lista horizontal de filmes no Admin
+  const listaFilmesRef = useRef<HTMLDivElement | null>(null);
+  const [listaScrollPos, setListaScrollPos] = useState(0);
+  const scrollLista = (direction: 'left' | 'right') => {
+    const el = listaFilmesRef.current;
+    if (!el) return;
+    const amount = Math.max(200, Math.floor(el.clientWidth * 0.8));
+    const newPos = direction === 'left' ? Math.max(0, el.scrollLeft - amount) : Math.min(el.scrollWidth - el.clientWidth, el.scrollLeft + amount);
+    el.scrollTo({ left: newPos, behavior: 'smooth' });
+    setListaScrollPos(newPos);
+  };
   
   // Estado para estatísticas do dashboard
   const [stats, setStats] = useState({
@@ -122,6 +134,11 @@ function AdminDashboard() {
 
     setFilmesFiltrados(filmesFiltrados);
   };
+
+  // Aplicar filtros automaticamente quando filmes ou filtros mudarem
+  useEffect(() => {
+    aplicarFiltros();
+  }, [filmes, buscaTexto, filtroCategorias, filtroDecada, ordenacao]);
 
   // Carregar opções de filmes do MySQL quando a aba Carrossel estiver ativa
   useEffect(() => {
@@ -1076,7 +1093,28 @@ function AdminDashboard() {
               </div>
 
               <div className="relative">
-                <div className="flex space-x-3 overflow-x-auto scrollbar-hide pb-4">
+                {/* Botões de navegação do slider (Admin) */}
+                <button
+                  onClick={() => scrollLista('left')}
+                  className="hidden md:flex items-center justify-center absolute left-0 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-vintage-gold/20 text-vintage-cream hover:bg-vintage-gold hover:text-vintage-black transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={!listaFilmesRef.current || listaFilmesRef.current.scrollLeft <= 0}
+                  aria-label="Anterior"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => scrollLista('right')}
+                  className="hidden md:flex items-center justify-center absolute right-0 top-1/2 -translate-y-1/2 z-10 h-10 w-10 rounded-full bg-vintage-gold/20 text-vintage-cream hover:bg-vintage-gold hover:text-vintage-black transition disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={!listaFilmesRef.current || (listaFilmesRef.current.scrollLeft + (listaFilmesRef.current.clientWidth || 0)) >= (listaFilmesRef.current.scrollWidth || 0) - 1}
+                  aria-label="Próximo"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+                <div
+                  ref={listaFilmesRef}
+                  onScroll={(e) => setListaScrollPos((e.target as HTMLDivElement).scrollLeft)}
+                  className="flex space-x-3 overflow-x-auto scrollbar-hide pb-4"
+                >
                   {filmesFiltrados.map((filme) => (
                   <div key={filme.GUID || filme.id || Math.random()} className="flex-shrink-0 w-56 film-card relative bg-vintage-black/20 rounded-lg overflow-hidden border border-vintage-gold/10">
                     {/* Imagem do Filme */}
