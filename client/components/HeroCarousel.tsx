@@ -56,32 +56,62 @@ export function HeroCarousel({ filmes }: HeroCarouselProps) {
           .filter((item: any) => item && item.ativo && item.filmeId && item.imagemUrl) as CarrosselItem[];
         setCarrosselData(carrosselAtivo);
 
-        // Buscar filmes correspondentes
-        const filmesCarrossel = carrosselAtivo
-          .map((item: CarrosselItem) => {
-            const filme = Array.isArray(filmes) ? filmes.find(f => f.GUID === item.filmeId) : undefined;
-            if (filme) {
-              return { ...filme, imagemUrl: item.imagemUrl } as Filme;
-            }
-            // Se o filme não existir na base local, ainda assim criar um slide com a imagem do carrossel
-            // Preenche campos mínimos para evitar erros no render
-            return {
-              GUID: item.filmeId || `carrossel-${item.posicao}`,
-              nomeOriginal: '',
-              nomePortugues: '',
-              ano: '',
-              categoria: [],
-              duracao: '',
-              sinopse: '',
-              imagemUrl: item.imagemUrl || '',
-              assistencias: 0,
-              embedLink: '',
-              videoGUID: '',
-              videoStatus: '',
-            } as unknown as Filme;
-          }) as Filme[];
+        // Buscar filmes correspondentes; se faltar, usar fallback remoto
+        const locais: Filme[] = [];
+        const faltantes: string[] = [];
+        for (const item of carrosselAtivo) {
+          const f = Array.isArray(filmes) ? filmes.find(x => x.GUID === item.filmeId) : undefined;
+          if (f) {
+            locais.push({ ...f, imagemUrl: item.imagemUrl } as Filme);
+          } else if (item.filmeId) {
+            faltantes.push(item.filmeId);
+          }
+        }
 
-        setCarrosselFilmes(filmesCarrossel);
+        let compostos = [...locais];
+        if (faltantes.length > 0) {
+          try {
+            const r = await fetch('/api/remoto/filmes', { cache: 'no-store' });
+            if (r.ok) {
+              const jr = await r.json().catch(() => ({} as any));
+              const listaRemota: Filme[] = Array.isArray(jr?.filmes) ? jr.filmes : (Array.isArray(jr) ? jr : []);
+              for (const item of carrosselAtivo) {
+                if (!item.filmeId) continue;
+                const remoto = listaRemota.find(x => x.GUID === item.filmeId);
+                if (remoto) {
+                  compostos.push({ ...remoto, imagemUrl: item.imagemUrl } as Filme);
+                }
+              }
+            }
+          } catch (_) {
+            // ignora falha remota, já temos placeholders abaixo
+          }
+        }
+
+        // Para qualquer item ainda não resolvido, cria placeholder com a imagem do carrossel
+        if (compostos.length < carrosselAtivo.length) {
+          for (const item of carrosselAtivo) {
+            const jaTem = compostos.some(c => c.GUID === item.filmeId);
+            if (!jaTem) {
+              compostos.push({
+                GUID: item.filmeId || `carrossel-${item.posicao}`,
+                nomeOriginal: '',
+                nomePortugues: '',
+                ano: '',
+                categoria: [],
+                duracao: '',
+                sinopse: '',
+                imagemUrl: item.imagemUrl || '',
+                assistencias: 0,
+                embedLink: '',
+                videoGUID: '',
+                videoStatus: '',
+              } as unknown as Filme);
+            }
+          }
+        }
+
+        setCarrosselFilmes(compostos);
       } catch (error) {
         console.error('Erro ao carregar carrossel:', error);
         setCarrosselData([]);

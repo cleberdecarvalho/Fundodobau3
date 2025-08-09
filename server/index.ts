@@ -28,6 +28,27 @@ export function createServer() {
     res.json({ message: ping });
   });
 
+  // Proxy simples para filmes remotos (HostGator) — somente leitura
+  app.get('/api/remoto/filmes', async (_req, res) => {
+    try {
+      const url = 'https://www.fundodobaufilmes.com/api-filmes.php';
+      const r = await fetch(url);
+      const text = await r.text();
+      try {
+        const json = text ? JSON.parse(text) : null;
+        if (!r.ok) return res.status(r.status).json(json || { success: false });
+        return res.json(json);
+      } catch (e) {
+        // resposta não-JSON
+        if (!r.ok) return res.status(r.status).send(text);
+        return res.type('text/plain').send(text);
+      }
+    } catch (err) {
+      console.error('❌ Proxy /api/remoto/filmes falhou:', err);
+      res.status(502).json({ success: false, error: 'Falha ao consultar filmes remotos' });
+    }
+  });
+
   // ============================
   // Carrossel Superior - Persistência local
   // ============================

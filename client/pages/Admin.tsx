@@ -41,6 +41,9 @@ function AdminDashboard() {
   ]);
   const [savingCarrossel, setSavingCarrossel] = useState(false);
 
+  // Opções de filmes vindas do MySQL (via proxy) para o Carrossel
+  const [carrosselFilmesOpcoes, setCarrosselFilmesOpcoes] = useState<Filme[]>([]);
+
   // Estados para Sliders
   const [sliders, setSliders] = useState<any[]>([]);
   const [showSliderModal, setShowSliderModal] = useState(false);
@@ -119,6 +122,24 @@ function AdminDashboard() {
 
     setFilmesFiltrados(filmesFiltrados);
   };
+
+  // Carregar opções de filmes do MySQL quando a aba Carrossel estiver ativa
+  useEffect(() => {
+    if (activeTab !== 'carrossel') return;
+    let cancelado = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/remoto/filmes', { cache: 'no-store' });
+        if (!r.ok) return;
+        const jr = await r.json().catch(() => ({} as any));
+        const lista: Filme[] = Array.isArray(jr?.filmes) ? jr.filmes : (Array.isArray(jr) ? jr : []);
+        if (!cancelado) setCarrosselFilmesOpcoes(lista);
+      } catch (_) {
+        // silencia erros — o seletor cai no fallback 'filmes'
+      }
+    })();
+    return () => { cancelado = true; };
+  }, [activeTab]);
 
   // Aplicar filtros sempre que os filmes ou filtros mudarem
   useEffect(() => {
@@ -1635,7 +1656,7 @@ function AdminDashboard() {
                         className="w-full bg-vintage-black/50 border border-vintage-gold/30 rounded-lg px-3 py-2 text-vintage-cream focus:border-vintage-gold focus:outline-none"
                       >
                         <option value="">Selecione um filme</option>
-                        {filmes.map((filme) => (
+                        {(carrosselFilmesOpcoes.length > 0 ? carrosselFilmesOpcoes : filmes).map((filme) => (
                           <option key={filme.GUID} value={filme.GUID}>
                             {filme.nomePortugues}
                           </option>
@@ -1655,7 +1676,8 @@ function AdminDashboard() {
                           onChange={(e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const filmeSelecionado = filmes.find(f => f.GUID === item.filmeId);
+                              const baseLista = carrosselFilmesOpcoes.length > 0 ? carrosselFilmesOpcoes : filmes;
+                              const filmeSelecionado = baseLista.find(f => f.GUID === item.filmeId);
                               if (filmeSelecionado) {
                                 handleCarrosselImageUpload(file, index, filmeSelecionado.nomePortugues);
                               }
