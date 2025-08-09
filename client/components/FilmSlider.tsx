@@ -48,7 +48,7 @@ export function FilmSlider({ titulo, filmes }: FilmSliderProps) {
     <section className="py-6">
       <div className="container mx-auto px-4">
         {/* Título da Seção */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-3">
                       <h2 className="text-3xl font-bold text-vintage-gold">
             {titulo}
           </h2>
@@ -133,7 +133,7 @@ function FilmCard({ filme }: FilmCardProps) {
           {/* Meta e Categorias (fora da moldura) */}
           <div className="w-full px-2 pt-1 pb-0">
             {/* Título Principal */}
-            <h3 className="font-semibold text-lg text-vintage-cream mb-0.5 leading-tight line-clamp-1 transition-colors">
+            <h3 className="font-semibold text-[15px] text-vintage-cream mb-0.5 leading-tight line-clamp-1 transition-colors">
               {filme.nomePortugues}
             </h3>
             

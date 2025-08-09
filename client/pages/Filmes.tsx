@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Filter, Grid, List, Star, Calendar, Clock, Play } from 'lucide-react';
+import { Search, Filter, Star, Calendar, Clock, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getImageSrc } from '@/utils/images';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,6 @@ export default function Filmes() {
   const [selectedCategorias, setSelectedCategorias] = useState<string[]>([]);
   const [selectedDecada, setSelectedDecada] = useState<string>('');
   const [sortBy, setSortBy] = useState<'nome' | 'ano' | 'assistencias'>('nome');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const { filmes, isLoading } = useFilmes();
 
@@ -228,15 +227,13 @@ export default function Filmes() {
           {/* Conteúdo Principal */}
           <main className="flex-1">
             {/* Controles de Visualização */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-6">
               <div className="flex items-center space-x-4">
                 <span className="text-vintage-cream/80 font-vintage-body">
                   {filmesFiltrados.length} filme{filmesFiltrados.length !== 1 ? 's' : ''} encontrado{filmesFiltrados.length !== 1 ? 's' : ''}
                 </span>
               </div>
-
-              <div className="flex items-center space-x-4">
-                {/* Ordenação */}
+              <div className="ml-auto">
                 <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
                   <SelectTrigger className="bg-vintage-black/50 border-vintage-gold/30 text-vintage-cream w-48">
                     <SelectValue />
@@ -247,30 +244,6 @@ export default function Filmes() {
                     <SelectItem value="assistencias">Mais Assistidos</SelectItem>
                   </SelectContent>
                 </Select>
-
-                {/* Modo de Visualização */}
-                <div className="flex border border-vintage-gold/30 rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-2 transition-colors ${
-                      viewMode === 'grid' 
-                        ? 'bg-vintage-gold text-vintage-black' 
-                        : 'text-vintage-cream hover:bg-vintage-gold/20'
-                    }`}
-                  >
-                    <Grid className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-2 transition-colors ${
-                      viewMode === 'list' 
-                        ? 'bg-vintage-gold text-vintage-black' 
-                        : 'text-vintage-cream hover:bg-vintage-gold/20'
-                    }`}
-                  >
-                    <List className="h-4 w-4" />
-                  </button>
-                </div>
               </div>
             </div>
 
@@ -288,16 +261,9 @@ export default function Filmes() {
                 </p>
               </div>
             ) : (
-              <div className={viewMode === 'grid' 
-                ? 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6' 
-                : 'space-y-4'
-              }>
+              <div className={'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-y-6 gap-x-3'}>
                 {filmesFiltrados.map((filme) => (
-                  viewMode === 'grid' ? (
-                    <FilmGridCard key={filme.GUID} filme={filme} />
-                  ) : (
-                    <FilmListCard key={filme.GUID} filme={filme} />
-                  )
+                  <FilmGridCard key={filme.GUID} filme={filme} />
                 ))}
               </div>
             )}
@@ -311,41 +277,45 @@ export default function Filmes() {
 function FilmGridCard({ filme }: { filme: any }) {
   return (
     <Link to={`/filme/${filme.GUID}`}>
-      <div className="film-card w-fit">
-        <div className="relative inline-flex items-center justify-center group rounded-lg overflow-hidden border border-vintage-gold/20 w-56 h-72">
+      <div className="film-card w-full">
+        <div className="relative inline-flex items-center justify-center group rounded-lg overflow-hidden border border-vintage-gold/20 w-full h-60">
           <img
             src={getImageSrc(filme.imagemUrl)}
             alt={filme.nomePortugues}
-            className="w-full h-full object-contain block"
+            className="w-full h-full object-cover block"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-vintage-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-            <div className="bg-vintage-gold rounded-full p-3 transform transition-transform duration-300 hover:scale-110">
-              <Play className="h-6 w-6 text-vintage-black" />
-            </div>
+          <div className="absolute inset-0 flex items-center justify-center bg-vintage-black/60 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
+            <Play className="h-10 w-10 text-vintage-gold" />
           </div>
         </div>
-        <div className="w-full px-3 pt-0 pb-0">
-          <h3 className="font-vintage-serif font-semibold text-xl text-vintage-cream mb-0.5 line-clamp-1 transition-colors">
+        <div className="w-full px-2 pt-1 pb-0">
+          <h3 className="font-vintage-serif font-semibold text-[15px] text-vintage-cream mb-0.5 line-clamp-1 transition-colors">
             {filme.nomePortugues}
           </h3>
           {/* Título Original removido por solicitação */}
           {filme.categoria?.length ? (
             <div className="flex items-center gap-1 min-w-0 mb-0.5">
-              {filme.categoria.slice(0, 2).map((cat: string, index: number) => (
-                <span
-                  key={index}
-                  className="text-sm bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body whitespace-nowrap"
-                >
+              {filme.categoria.slice(0, 3).map((cat: string, index: number) => (
+                <span key={index} className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body whitespace-nowrap">
                   {cat}
                 </span>
               ))}
+              {filme.categoria.length > 3 && (
+                <span className="text-xs text-vintage-cream/50 whitespace-nowrap">+{filme.categoria.length - 3}</span>
+              )}
             </div>
           ) : null}
-          <div className="flex items-center text-sm text-vintage-cream/60 gap-2 overflow-hidden">
-            <span className="font-vintage-body whitespace-nowrap">{filme.ano}</span>
+          <div className="flex items-center text-xs text-vintage-cream/60 gap-2 overflow-hidden leading-none">
+            <div className="flex items-center gap-1 whitespace-nowrap">
+              <Calendar className="h-3 w-3" />
+              <span className="font-vintage-body">{filme.ano}</span>
+            </div>
             <span className="opacity-50">•</span>
-            <span className="font-vintage-body whitespace-nowrap">{filme.duracao}</span>
+            <div className="flex items-center gap-1 whitespace-nowrap">
+              <Clock className="h-3 w-3" />
+              <span className="font-vintage-body">{filme.duracao}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -357,37 +327,35 @@ function FilmListCard({ filme }: { filme: any }) {
   return (
     <Link to={`/filme/${filme.GUID}`}>
       <div className="film-card flex">
-        <div className="relative inline-flex items-center justify-center group rounded-lg overflow-hidden border border-vintage-gold/20 flex-shrink-0">
+        <div className="relative inline-flex items-center justify-center group rounded-lg overflow-hidden border border-vintage-gold/20 flex-shrink-0 w-full h-60 max-w-[240px]">
           <img
             src={getImageSrc(filme.imagemUrl)}
             alt={filme.nomePortugues}
-            className="h-40 w-auto object-contain block"
+            className="w-full h-full object-cover block"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-vintage-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
-            <div className="bg-vintage-gold rounded-full p-2 transform transition-transform duration-300 hover:scale-110">
-              <Play className="h-4 w-4 text-vintage-black" />
-            </div>
+          <div className="absolute inset-0 flex items-center justify-center bg-vintage-black/60 transition-opacity duration-300 opacity-0 group-hover:opacity-100">
+            <Play className="h-10 w-10 text-vintage-gold" />
           </div>
         </div>
-        <div className="w-full px-3 pt-0 pb-0 flex-1">
-          <h3 className="font-vintage-serif font-semibold text-2xl text-vintage-cream mb-0.5 transition-colors">
+        <div className="w-full px-2 pt-1 pb-0 flex-1">
+          <h3 className="font-vintage-serif font-semibold text-[15px] text-vintage-cream mb-0.5 transition-colors">
             {filme.nomePortugues}
           </h3>
           {/* Título Original removido por solicitação */}
           {filme.categoria?.length ? (
             <div className="flex items-center gap-1 min-w-0 mb-0.5">
-              {filme.categoria.map((cat: string, index: number) => (
-                <span
-                  key={index}
-                  className="text-sm bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body whitespace-nowrap"
-                >
+              {filme.categoria.slice(0, 3).map((cat: string, index: number) => (
+                <span key={index} className="text-xs bg-vintage-gold/20 text-vintage-gold px-2 py-1 rounded font-vintage-body whitespace-nowrap">
                   {cat}
                 </span>
               ))}
+              {filme.categoria.length > 3 && (
+                <span className="text-xs text-vintage-cream/50 whitespace-nowrap">+{filme.categoria.length - 3}</span>
+              )}
             </div>
           ) : null}
-          <div className="flex items-center gap-2 text-base text-vintage-cream/60 overflow-hidden">
+          <div className="flex items-center text-xs text-vintage-cream/60 gap-2 overflow-hidden leading-none">
             <div className="flex items-center gap-1 whitespace-nowrap">
               <Calendar className="h-3 w-3" />
               <span className="font-vintage-body">{filme.ano}</span>
@@ -398,9 +366,6 @@ function FilmListCard({ filme }: { filme: any }) {
               <span className="font-vintage-body">{filme.duracao}</span>
             </div>
           </div>
-          <p className="text-sm text-vintage-cream/80 font-vintage-body line-clamp-2 leading-relaxed">
-            {filme.sinopse}
-          </p>
         </div>
       </div>
     </Link>
