@@ -183,12 +183,6 @@ export default function FilmeDetalhes() {
                     <Eye className="h-4 w-4 text-vintage-gold" />
                                             <span className="font-vintage-body">{filme.assistencias || 0} visualizações</span>
                   </div>
-                  {estatisticas && estatisticas.media_avaliacao > 0 && (
-                    <div className="flex items-center gap-2 text-vintage-cream/80">
-                      <Star className="h-4 w-4 text-vintage-gold fill-current" />
-                                              <span className="font-vintage-body">{estatisticas.media_avaliacao ? estatisticas.media_avaliacao.toFixed(1) : '0.0'}/5</span>
-                    </div>
-                  )}
                 </div>
 
                 {/* Categorias */}
@@ -206,19 +200,6 @@ export default function FilmeDetalhes() {
 
               {/* Ações do Usuário */}
               <div className="space-y-4">
-                {!isAuthenticated && (
-                  <div className="bg-vintage-gold/10 border border-vintage-gold/30 rounded-lg p-3 mb-4">
-                    <div className="flex items-center space-x-2">
-                      <User className="h-4 w-4 text-vintage-gold" />
-                      <div>
-                        <p className="text-vintage-gold font-vintage-serif font-semibold text-sm">Faça login</p>
-                        <p className="text-vintage-cream/80 font-vintage-body text-xs">
-                          Para interagir com o filme
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {isAuthenticated && (
                   <div className="grid grid-cols-1 gap-3">
@@ -277,39 +258,9 @@ export default function FilmeDetalhes() {
                       ))}
                     </div>
                   )}
-                  {!isAuthenticated && (
-                    <p className="text-xs text-vintage-cream/60 text-center mt-2">
-                      <span className="text-vintage-gold">Login</span> para salvar
-                    </p>
-                  )}
                 </div>
 
-                {/* Estatísticas do Filme */}
-                {estatisticas && (
-                  <div className="border-t border-vintage-gold/20 pt-4">
-                    <p className="text-sm font-vintage-serif font-semibold text-vintage-gold mb-3 text-center">
-                      Estatísticas
-                    </p>
-                    <div className="grid grid-cols-2 gap-4 text-center">
-                      <div>
-                        <p className="text-vintage-cream font-semibold">{estatisticas.total_assistidos || 0}</p>
-                        <p className="text-vintage-cream/60 text-xs">Assistidos</p>
-                      </div>
-                      <div>
-                        <p className="text-vintage-cream font-semibold">{estatisticas.total_favoritos || 0}</p>
-                        <p className="text-vintage-cream/60 text-xs">Favoritos</p>
-                      </div>
-                      <div>
-                        <p className="text-vintage-cream font-semibold">{estatisticas.total_avaliacoes || 0}</p>
-                        <p className="text-vintage-cream/60 text-xs">Avaliações</p>
-                      </div>
-                      <div>
-                        <p className="text-vintage-cream font-semibold">{estatisticas.media_avaliacao ? estatisticas.media_avaliacao.toFixed(1) : '0.0'}</p>
-                        <p className="text-vintage-cream/60 text-xs">Média</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                {/* Estatísticas do Filme removidas */}
               </div>
             </div>
           </div>
