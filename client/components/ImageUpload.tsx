@@ -21,33 +21,41 @@ export function ImageUpload({ onImageUploaded, currentImage, filmeName }: ImageU
     setIsUploading(true);
 
     try {
-      // Gerar nome do arquivo baseado no nome do filme ou timestamp
-      const fileName = filmeName ? 
-        `${filmeName.toLowerCase().replace(/[^a-z0-9]/g, '-')}.${file.name.split('.').pop()}` :
-        `filme-${Date.now()}.${file.name.split('.').pop()}`;
-
-      // Criar FormData para upload
+      // Enviar multipart para o PHP na HostGator
       const formData = new FormData();
-      formData.append('image', file);
-      formData.append('fileName', fileName);
+      formData.append('imagem', file);
+      formData.append('nomeFilme', (filmeName || 'filme').toString());
 
-      // Simular upload (na implementação real, seria uma chamada à API)
-      const reader = new FileReader();
-      reader.onload = () => {
-        // Simular salvamento em public/images/filmes
-        const imagePath = `/images/filmes/${fileName}`;
-        onImageUploaded(imagePath);
-        setIsUploading(false);
-      };
-      reader.readAsDataURL(file);
+      // Derivar slug do nome do filme
+      const slug = (filmeName || 'filme').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      formData.append('slug', slug);
 
-      // Para implementação real com API:
-      // const response = await fetch('/api/upload-image', {
-      //   method: 'POST',
-      //   body: formData
-      // });
-      // const result = await response.json();
-      // onImageUploaded(result.imagePath);
+      const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php?endpoint=salvar-imagem-filme', {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'X-Endpoint': 'salvar-imagem-filme',
+        },
+        body: formData,
+      });
+
+      let result: any = {};
+      try {
+        result = await response.json();
+      } catch {
+        // tentar ler como texto para debug
+        const txt = await response.text().catch(() => '');
+        console.error('Falha ao parsear JSON do upload. Status:', response.status, 'Body:', txt);
+        throw new Error('Resposta inválida do servidor no upload');
+      }
+      if (!response.ok || !result || result.success !== true || (!result.caminho && !result.url)) {
+        console.error('Falha no upload. Status:', response.status, 'Resposta:', result);
+        throw new Error(result?.error || 'Erro ao fazer upload da imagem');
+      }
+
+      // Preferir URL absoluta
+      onImageUploaded(result.url || result.caminho);
+      setIsUploading(false);
 
     } catch (error) {
       console.error('Erro no upload da imagem:', error);

@@ -1049,30 +1049,15 @@ try {
             // Upload de imagem do carrossel (multipart form-data)
             if ($endpoint === 'salvar-imagem-carrossel' && isset($_FILES) && isset($_FILES['imagem'])) {
                 try {
-                    // Tentar detectar pasta existente:
-                    // - public/images/carrossel/
-                    // - public/images/carrosel/
-                    // - images/carrossel/
-                    // - images/carrosel/
+                    // Tentar detectar/garantir pasta existente
                     $candidates = [
-                        // Prioriza pasta ao lado do script (padrão em public_html)
                         ['fs' => __DIR__ . '/images/carrossel/',           'public' => '/images/carrossel/'],
-                        ['fs' => __DIR__ . '/images/carrosel/',            'public' => '/images/carrosel/'],
-                        // Fallbacks
                         ['fs' => __DIR__ . '/../public/images/carrossel/', 'public' => '/images/carrossel/'],
-                        ['fs' => __DIR__ . '/../public/images/carrosel/',  'public' => '/images/carrosel/'],
                         ['fs' => __DIR__ . '/../images/carrossel/',        'public' => '/images/carrossel/'],
-                        ['fs' => __DIR__ . '/../images/carrosel/',         'public' => '/images/carrosel/'],
                     ];
                     $chosen = null;
-                    foreach ($candidates as $cand) {
-                        if (is_dir($cand['fs'])) { $chosen = $cand; break; }
-                    }
-                    if ($chosen === null) {
-                        // Se nenhuma existe, criar a primeira opção
-                        $chosen = $candidates[0];
-                        @mkdir($chosen['fs'], 0775, true);
-                    }
+                    foreach ($candidates as $cand) { if (is_dir($cand['fs'])) { $chosen = $cand; break; } }
+                    if ($chosen === null) { $chosen = $candidates[0]; @mkdir($chosen['fs'], 0775, true); }
                     $uploadDir = $chosen['fs'];
                     $publicBase = $chosen['public'];
 
@@ -1085,25 +1070,114 @@ try {
 
                     $posicao = isset($_POST['posicao']) ? (int)$_POST['posicao'] : 0;
                     $nomeFilme = $_POST['nomeFilme'] ?? 'filme';
-
-                    // Slug simples do nome do filme
                     $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', $nomeFilme));
                     $slug = trim($slug, '-');
 
-                    $ext = pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'jpg';
+                    $ext = pathinfo($file['name'] ?? '', PATHINFO_EXTENSION) ?: 'jpg';
                     $basename = "carrossel-{$posicao}-{$slug}.{$ext}";
                     $destPath = $uploadDir . $basename;
-
                     if (!move_uploaded_file($file['tmp_name'], $destPath)) {
                         http_response_code(500);
                         echo json_encode(['error' => 'Não foi possível salvar a imagem']);
                         break;
                     }
 
-                    // Caminho público
                     $publicPath = rtrim($publicBase, '/') . '/' . $basename;
                     http_response_code(200);
                     echo json_encode(['success' => true, 'caminho' => $publicPath]);
+                    exit;
+                } catch (Exception $e) {
+                    http_response_code(500);
+                    echo json_encode(['error' => 'Erro no upload do carrossel: ' . $e->getMessage()]);
+                }
+                break;
+            }
+
+            // Upload de imagem do filme (poster) - aceita multipart (imagem|image|file) ou base64 (imagemBase64)
+            if ($endpoint === 'salvar-imagem-filme') {
+                try {
+                    $candidates = [
+                        ['fs' => __DIR__ . '/images/filmes/',            'public' => '/images/filmes/'],
+                        ['fs' => __DIR__ . '/../public/images/filmes/',  'public' => '/images/filmes/'],
+                        ['fs' => __DIR__ . '/../images/filmes/',         'public' => '/images/filmes/'],
+                    ];
+                    $chosen = null;
+                    foreach ($candidates as $cand) { if (is_dir($cand['fs'])) { $chosen = $cand; break; } }
+                    if ($chosen === null) { $chosen = $candidates[0]; @mkdir($chosen['fs'], 0775, true); }
+                    $uploadDir = $chosen['fs'];
+                    $publicBase = $chosen['public'];
+
+                    // Priorizar slug explícito (POST ou JSON), senão derivar de nomeFilme
+                    $slugParam = $_POST['slug'] ?? ($input['slug'] ?? null);
+                    if ($slugParam) {
+                        $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', (string)$slugParam));
+                        $slug = trim($slug, '-');
+                    } else {
+                        $nomeFilme = $_POST['nomeFilme'] ?? ($input['nomeFilme'] ?? 'filme');
+                        $slug = strtolower(preg_replace('/[^a-z0-9]+/i', '-', (string)$nomeFilme));
+                        $slug = trim($slug, '-');
+                    }
+
+                    $savedPublicPath = null;
+
+                    // multipart
+                    $file = null;
+                    if (!empty($_FILES)) {
+                        if (isset($_FILES['imagem'])) { $file = $_FILES['imagem']; }
+                        elseif (isset($_FILES['image'])) { $file = $_FILES['image']; }
+                        elseif (isset($_FILES['file'])) { $file = $_FILES['file']; }
+                    }
+                    if ($file && isset($file['tmp_name'])) {
+                        if ($file['error'] !== UPLOAD_ERR_OK) {
+                            http_response_code(400);
+                            echo json_encode(['success' => false, 'error' => 'Falha no upload da imagem (multipart)']);
+                            break;
+                        }
+                        $ext = pathinfo($file['name'] ?? '', PATHINFO_EXTENSION) ?: 'jpg';
+                        $basename = "poster-{$slug}.{$ext}";
+                        $destPath = $uploadDir . $basename;
+                        if (!move_uploaded_file($file['tmp_name'], $destPath)) {
+                            http_response_code(500);
+                            echo json_encode(['success' => false, 'error' => 'Não foi possível salvar a imagem (move_uploaded_file)']);
+                            break;
+                        }
+                        $savedPublicPath = rtrim($publicBase, '/') . '/' . $basename;
+                    } else {
+                        // base64
+                        $base64 = $_POST['imagemBase64'] ?? ($input['imagemBase64'] ?? null);
+                        if ($base64 && preg_match('/^data:(.*?);base64,(.*)$/', $base64, $m)) {
+                            $mime = $m[1];
+                            $data = base64_decode($m[2]);
+                            if ($data === false) {
+                                http_response_code(400);
+                                echo json_encode(['success' => false, 'error' => 'Base64 inválido']);
+                                break;
+                            }
+                            $ext = 'jpg';
+                            if (stripos($mime, 'png') !== false) { $ext = 'png'; }
+                            elseif (stripos($mime, 'webp') !== false) { $ext = 'webp'; }
+                            $basename = "poster-{$slug}.{$ext}";
+                            $destPath = $uploadDir . $basename;
+                            if (@file_put_contents($destPath, $data) === false) {
+                                http_response_code(500);
+                                echo json_encode(['success' => false, 'error' => 'Não foi possível salvar a imagem (base64)']);
+                                break;
+                            }
+                            $savedPublicPath = rtrim($publicBase, '/') . '/' . $basename;
+                        } else {
+                            http_response_code(400);
+                            echo json_encode(['success' => false, 'error' => 'Nenhum arquivo enviado (imagem/image/file ou imagemBase64)']);
+                            break;
+                        }
+                    }
+
+                    // Montar URL absoluta, se possível
+                    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+                    $host = $_SERVER['HTTP_HOST'] ?? '';
+                    $absoluteUrl = $host ? ($scheme . '://' . $host . $savedPublicPath) : $savedPublicPath;
+
+                    http_response_code(200);
+                    echo json_encode(['success' => true, 'caminho' => $savedPublicPath, 'url' => $absoluteUrl]);
                     exit;
                 } catch (Exception $e) {
                     http_response_code(500);
@@ -1119,23 +1193,17 @@ try {
                     echo json_encode(['error' => 'Payload inválido: campo carrossel é obrigatório']);
                     break;
                 }
-
                 try {
                     $pdo->beginTransaction();
-                    // Estratégia simples: limpar e inserir
                     $pdo->exec('DELETE FROM carrossel');
-
                     $stmt = $pdo->prepare("INSERT INTO carrossel (posicao, filmeId, imagemUrl, ativo, createdAt, updatedAt) VALUES (?, ?, ?, ?, NOW(), NOW())");
                     foreach ($input['carrossel'] as $item) {
                         $posicao = (int)($item['posicao'] ?? 0);
                         $filmeId = $item['filmeId'] ?? ($item['filme_guid'] ?? null);
                         $imagemUrl = $item['imagemUrl'] ?? null;
                         $ativo = isset($item['ativo']) ? (int)$item['ativo'] : 1;
-                        if ($filmeId && $imagemUrl) {
-                            $stmt->execute([$posicao, $filmeId, $imagemUrl, $ativo]);
-                        }
+                        if ($filmeId && $imagemUrl) { $stmt->execute([$posicao, $filmeId, $imagemUrl, $ativo]); }
                     }
-
                     $pdo->commit();
                     http_response_code(200);
                     echo json_encode(['success' => true]);

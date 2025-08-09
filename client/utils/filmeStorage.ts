@@ -22,34 +22,55 @@ const MYSQL_CONFIG = {
   }
 };
 
-// Função para salvar imagem base64 como arquivo
+// Função para salvar imagem base64 como arquivo (via HostGator PHP)
 async function salvarImagemComoArquivo(base64Data: string, nomeFilme: string): Promise<string> {
   try {
-    console.log('🖼️ Salvando imagem para:', nomeFilme);
-    
-    // Salvar imagem via API do servidor
-    const response = await fetch('http://localhost:8084/api/salvar-imagem', {
+    console.log('🖼️ Salvando imagem (base64) para:', nomeFilme);
+
+    // Converter base64 em Blob
+    const [meta, data] = base64Data.split(',');
+    const mimeMatch = /data:(.*?);base64/.exec(meta || '') || [];
+    const mime = mimeMatch[1] || 'image/jpeg';
+    const binary = atob(data);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: mime });
+
+    // Montar multipart para o endpoint PHP
+    const form = new FormData();
+    // Nome de arquivo sugerido baseado no nome do filme e tipo
+    const ext = mime.includes('png') ? 'png' : mime.includes('webp') ? 'webp' : 'jpg';
+    const slug = (nomeFilme || 'filme').toString().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    const filename = `poster-${slug}.${ext}`;
+    form.append('imagem', blob, filename);
+    form.append('nomeFilme', nomeFilme || 'filme');
+
+    const response = await fetch('https://www.fundodobaufilmes.com/api-filmes.php?endpoint=salvar-imagem-filme', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        imagemBase64: base64Data,
-        nomeFilme: nomeFilme
-      }),
+      body: form,
     });
-    
-    if (response.ok) {
-      const result = await response.json();
-      console.log('✅ Imagem salva no servidor:', result.caminho);
-      return result.caminho;
-    } else {
-      console.error('❌ Erro ao salvar imagem no servidor:', response.status);
+
+    let result: any = {};
+    try {
+      result = await response.json();
+    } catch {
+      const txt = await response.text().catch(() => '');
+      console.error('❌ Upload base64: resposta não-JSON. Status:', response.status, 'Body:', txt);
       return '/images/filmes/default.jpg';
     }
+    if (!response.ok || !result || result.success !== true || (!result.caminho && !result.url)) {
+      console.error('❌ Erro ao salvar imagem no PHP:', result, 'Status:', response.status);
+      return '/images/filmes/default.jpg';
+    }
+
+    const base = 'https://www.fundodobaufilmes.com';
+    const caminho: string = result.url || (result.caminho?.startsWith('/') ? `${base}${result.caminho}` : result.caminho);
+    console.log('✅ Imagem salva no servidor:', caminho);
+    return caminho;
   } catch (error) {
-    console.error('❌ Erro ao salvar imagem:', error);
-    return '/images/filmes/default.jpg'; // Fallback para imagem padrão
+    console.error('❌ Erro ao salvar imagem (base64):', error);
+    return '/images/filmes/default.jpg';
   }
 }
 
@@ -78,6 +99,7 @@ export async function getFilmes(): Promise<Filme[]> {
         // Processar imagens base64 para salvar como arquivos
         if (result.filmes) {
           console.log('🖼️ Processando imagens...');
+          const BASE_DOMAIN = 'https://www.fundodobaufilmes.com';
           for (const filme of result.filmes) {
             console.log('🖼️ Filme:', filme.nomePortugues, 'Imagem:', filme.imagemUrl ? filme.imagemUrl.substring(0, 50) + '...' : 'Nenhuma');
             
@@ -90,6 +112,10 @@ export async function getFilmes(): Promise<Filme[]> {
                 console.error('❌ Erro ao processar imagem para', filme.nomePortugues, ':', error);
                 filme.imagemUrl = '/images/filmes/default.jpg'; // Fallback
               }
+            } else if (filme.imagemUrl && filme.imagemUrl.startsWith('/')) {
+              // Caminho relativo absoluto (ex.: /images/filmes/...) -> prefixar com domínio público
+              filme.imagemUrl = `${BASE_DOMAIN}${filme.imagemUrl}`;
+              console.log('✅ Caminho relativo prefixado para domínio público:', filme.nomePortugues, '->', filme.imagemUrl);
             } else if (filme.imagemUrl && !filme.imagemUrl.startsWith('http') && !filme.imagemUrl.startsWith('/')) {
               // Se não tem caminho completo, adicionar prefixo
               filme.imagemUrl = `/images/filmes/${filme.imagemUrl}`;

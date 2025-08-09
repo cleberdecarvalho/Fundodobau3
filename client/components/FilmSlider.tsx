@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { getImageSrc } from '@/utils/images';
 import { ChevronLeft, ChevronRight, Play, Calendar, Clock, Star } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Filme } from '@shared/types';
@@ -111,9 +112,10 @@ function FilmCard({ filme }: FilmCardProps) {
           {/* Imagem do Filme */}
           <div className="relative overflow-hidden">
             <img
-              src={filme.imagemUrl}
+              src={getImageSrc(filme.imagemUrl)}
               alt={filme.nomePortugues}
-              className="w-full h-72 object-cover transition-transform duration-300 group-hover:scale-105"
+              className="w-24 h-36 object-cover flex-shrink-0"
+              loading="lazy"
             />
             
             {/* Overlay com botão play */}

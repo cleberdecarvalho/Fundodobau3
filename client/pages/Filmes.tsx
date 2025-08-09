@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, Filter, Grid, List, Star, Calendar, Clock, Play } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getImageSrc } from '@/utils/images';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -195,7 +196,7 @@ export default function Filmes() {
                                 {index + 1}
                               </span>
                               <img 
-                                src={filme.imagemUrl} 
+                                src={getImageSrc(filme.imagemUrl)} 
                                 alt={filme.nomePortugues}
                                 loading="lazy"
                                 className="w-10 h-14 object-cover rounded"
@@ -313,7 +314,7 @@ function FilmGridCard({ filme }: { filme: any }) {
       <div className="film-card">
         <div className="relative overflow-hidden">
           <img
-            src={filme.imagemUrl}
+            src={getImageSrc(filme.imagemUrl)}
             alt={filme.nomePortugues}
             className="w-full h-64 object-cover transition-transform duration-300 group-hover:scale-110"
             loading="lazy"
@@ -357,7 +358,7 @@ function FilmListCard({ filme }: { filme: any }) {
       <div className="film-card flex">
         <div className="relative overflow-hidden">
           <img
-            src={filme.imagemUrl}
+            src={getImageSrc(filme.imagemUrl)}
             alt={filme.nomePortugues}
             className="w-24 h-36 object-cover flex-shrink-0"
             loading="lazy"
